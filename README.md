@@ -33,7 +33,7 @@ This repo contains the complete NixOS configuration for my home NAS — a Ugreen
 
 The entire system is ~8 files. Here's what they set up:
 
-**Storage** — disko handles partitioning declaratively. The NVMe is split into three partitions: EFI/boot (1GB), NixOS root (64GB), and `/apps` (remaining ~447GB) for Docker data and configs. The 14TB HDD is a single btrfs partition mounted at `/data` with zstd compression and a monthly scrub for integrity.
+**Storage** — disko handles partitioning declaratively. The NVMe is split into three partitions: EFI/boot (1GB), NixOS root (64GB), and `/apps` (remaining ~447GB) for Docker data and configs. The BIOS boots directly from the ADATA NVMe ESP. The 14TB HDD is a single btrfs partition mounted at `/data` with zstd compression and a monthly scrub for integrity.
 
 **Docker** — Docker daemon runs with `data-root` pointed at `/apps/docker` on the NVMe. Compose files and app configs live under `/apps/compose` and `/apps/config`. Media referenced by containers (e.g. Jellyfin) is mounted from `/data/media` on the HDD.
 
@@ -92,15 +92,7 @@ UGOS SSD ─ internal NVMe  (READ-ONLY)
 
 ## Reproducing This
 
-You'll need a Ugreen DXP4800 Plus (or similar x86 NAS) with an NVMe and HDD. The DXP4800 Plus only boots from its internal NVMe slot, so the NixOS bootloader lives on the UGOS SSD's ESP partition alongside the vendor bootloader.
-
-Before you start: find your UGOS SSD serial and replace `YSO128GTLCW-E3C-2_511250701135025164` in `modules/ugos-protection.nix` and `configuration.nix`:
-
-```bash
-ls /dev/disk/by-id/ | grep nvme | grep -v ADATA | grep -v part
-```
-
-Also confirm your HDD device ID matches `disko-config.nix`:
+You'll need a Ugreen DXP4800 Plus with an NVMe and HDD. Confirm your HDD device ID matches `disko-config.nix`:
 
 ```bash
 ls /dev/disk/by-id/ | grep ata-WDC
@@ -113,7 +105,7 @@ Then install:
 #    Disable WatchDog in BIOS first (it reboots after 180s expecting UGOS)
 
 # 2. Set the UGOS SSD read-only before touching anything
-blockdev --setro /dev/nvme_YOUR_UGOS_DEVICE
+blockdev --setro /dev/disk/by-id/nvme-YSO128GTLCW-E3C-2_511250811096010990
 
 # 3. Partition drives with disko
 nix --experimental-features "nix-command flakes" run github:nix-community/disko -- \
@@ -127,10 +119,8 @@ nix --experimental-features "nix-command flakes" build \
   .#nixosConfigurations.nixnas.config.system.build.toplevel --store /mnt
 nixos-install --root /mnt --system ./result --no-root-passwd
 
-# 6. Copy NixOS bootloader to the UGOS SSD ESP and create EFI entry
-mount /dev/nvme_YOUR_UGOS_DEVICE_p1 /mnt/ugos-esp
-rsync -a --exclude='EFI/debian' /mnt/boot/ /mnt/ugos-esp/
-efibootmgr -c -d /dev/nvme_YOUR_UGOS_DEVICE -p 1 -L "NixOS" -l '\EFI\systemd\systemd-bootx64.efi'
+# 6. In BIOS, set the ADATA NVMe as the boot device
+#    The NixOS ESP on /boot is already on the ADATA — no extra steps needed
 
 # 7. Reboot, remove USB, NixOS should boot
 # 8. After first login: change password with passwd
@@ -144,7 +134,6 @@ cd /etc/nixos && sudo nixos-rebuild switch --flake .#nixnas
 
 ## Known Quirks
 
-- **Boot device** — the DXP4800 Plus only shows its internal NVMe slot as bootable, so the bootloader has to live on the UGOS SSD ESP
 - **WatchDog reboots** — BIOS sends a 180s watchdog expecting UGOS to respond; disable it in BIOS settings
 - **nixos-install crash** — `nix flake build` + `nixos-install --flake` hits an assertion error; the two-step build-then-install workaround above avoids it
 - **IT8613E fan chip** — needs an out-of-tree `it87` kernel module; included in this config and built automatically
