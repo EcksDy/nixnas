@@ -1,0 +1,25 @@
+# sops-nix creation rules.
+#
+# Replace the two placeholder age public keys below:
+#   - PERSONAL: your laptop key (also stored in Proton Pass)
+#       age-keygen -o ~/personal-age.key   # public line -> here
+#   - NAS: the NAS key
+#       sudo age-keygen -o /var/lib/sops-nix/nas.key   # public line -> here
+#
+# Then create/edit secrets:
+#   export SOPS_AGE_KEY_FILE=~/personal-age.key
+#   sops secrets/arr.yaml
+#
+# After adding/replacing a key, re-wrap existing secrets:
+#   sops updatekeys secrets/*.yaml
+
+keys:
+  - &personal age132ayd3fsyxu0jdde0p2uwyfjc6446xf674fj7vznmkhkenlsjf2s9jx5np
+  - &nas age1pcey0n5d40hmp6akx8v8rur3ha8rk7edkfcdv33sjrr8vujj05ks7ac2lt
+
+creation_rules:
+  - path_regex: secrets/.*\.yaml$
+    key_groups:
+      - age:
+          - *personal
+          - *nas

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Install the repo's git hooks (pre-commit secret guard).
+set -euo pipefail
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+ln -sf ../../scripts/pre-commit "$REPO/.git/hooks/pre-commit"
+chmod +x "$REPO/scripts/pre-commit"
+echo "installed pre-commit hook -> .git/hooks/pre-commit"

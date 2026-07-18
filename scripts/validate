@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Validate the NixOS flake without installing Nix on the host.
+# Uses the official nixos/nix Docker image. Eval-only (no build).
+#
+# Usage:
+#   scripts/validate           # flake check (all modules eval + merge)
+#   scripts/validate eval      # print the toplevel derivation path
+#   scripts/validate trace     # flake check with --show-trace
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+IMAGE="nixos/nix:latest"
+MODE="${1:-check}"
+
+case "$MODE" in
+  eval)  CMD='nix eval .#nixosConfigurations.nixnas.config.system.build.toplevel.drvPath' ;;
+  trace) CMD='nix flake check --no-build --show-trace' ;;
+  check) CMD='nix flake check --no-build' ;;
+  *) echo "unknown mode: $MODE (use check|eval|trace)"; exit 1 ;;
+esac
+
+exec docker run --rm -v "$REPO_ROOT":/src:ro "$IMAGE" sh -c "
+  set -e
+  cp -r /src /work && cd /work
+  git config --global --add safe.directory /work 2>/dev/null || true
+  git add -A -N 2>/dev/null || true
+  export NIX_CONFIG='experimental-features = nix-command flakes'
+  $CMD
+"

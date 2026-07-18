@@ -42,22 +42,31 @@
       enable = true;
       allowedTCPPorts = [
         22    # SSH
-        2049  # NFS
+        80    # Traefik HTTP (LAN)
+        443   # Traefik HTTPS (LAN)
       ];
-      allowedUDPPorts = [
-        2049  # NFS
-      ];
+      # NFS removed. Tailscale UDP port + trusted iface handled in modules/tailscale.nix.
     };
   };
 
   # ============================================================
-  # User
+  # Users & Groups
   # ============================================================
   users.users.admin = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" "docker" ];
+    extraGroups = [ "wheel" "networkmanager" "docker" "media" ];
     initialPassword = "changeme";
     # ⚠️ Change after first login: passwd
+  };
+
+  # Dedicated non-login media service user/group (uid/gid 13000).
+  # All arr containers run as this identity; owns the /data media tree.
+  users.groups.media.gid = config.nixnas.mediaGid;
+  users.users.media = {
+    isSystemUser = true;
+    uid = config.nixnas.mediaUid;
+    group = "media";
+    description = "Media stack service user";
   };
 
   # ============================================================
@@ -179,6 +188,8 @@
       data-root = "/apps/docker";
     };
   };
+  # oci-containers use the docker backend (Q12 decision).
+  virtualisation.oci-containers.backend = "docker";
 
   # ============================================================
   # SMART Monitoring
@@ -203,31 +214,51 @@
 
   # ============================================================
   # Directory Structure
+  #
+  # /apps (NVMe): docker data-root + per-service config/state.
+  # /data (HDD):  TRaSH Guides layout. torrents/usenet/media in ONE
+  #               filesystem (plain dirs, NOT subvolumes) so hardlinks
+  #               + instant atomic-move imports work. Owned media:media,
+  #               mode 2775 (setgid) so new files inherit the group.
   # ============================================================
-  systemd.tmpfiles.rules = [
-    # --- /apps (NVMe) – Docker, compose files, app configs ---
-    "d /apps/docker          0710 root   root   -"
-    "d /apps/compose         0755 admin  users  -"
-    "d /apps/config          0755 admin  users  -"
+  systemd.tmpfiles.rules =
+    let
+      m = "${toString config.nixnas.mediaUid}";
+      g = "${toString config.nixnas.mediaGid}";
+      dataDir = config.nixnas.dataDir;
+      appsBase = config.nixnas.appsDir;
+      # setgid dir owned by media:media
+      mediaDir = p: "d ${p} 2775 ${m} ${g} -";
+    in
+    [
+      # --- /apps (NVMe) ---
+      "d /apps/docker    0710 root  root -"
+      "d ${appsBase}     0755 root  root -"
+    ]
+    ++ [
+      # --- /data (HDD) TRaSH tree ---
+      (mediaDir "${dataDir}/torrents")
+      (mediaDir "${dataDir}/torrents/tv")
+      (mediaDir "${dataDir}/torrents/movies")
+      (mediaDir "${dataDir}/torrents/music")
+      (mediaDir "${dataDir}/torrents/anime")
 
-    # --- /data (HDD) – media files only ---
-    "d /data/backup          0755 admin  users  -"
-    "d /data/backup/pve-lab  0755 admin  users  -"
-    "d /data/backup/pve-proxway 0755 admin users -"
-    "d /data/media           0755 admin  users  -"
-    "d /data/media/Anime     0755 admin  users  -"
-    "d /data/media/Filme     0755 admin  users  -"
-    "d /data/media/Serien    0755 admin  users  -"
-    "d /data/media/Musik     0755 admin  users  -"
-    "d /data/incoming        0755 admin  users  -"
-    "d /data/incoming/Anime  0755 admin  users  -"
-    "d /data/incoming/Filme  0755 admin  users  -"
-    "d /data/incoming/Serien 0755 admin  users  -"
-    "d /data/incoming/Musik  0755 admin  users  -"
-  ];
+      (mediaDir "${dataDir}/usenet")
+      (mediaDir "${dataDir}/usenet/incomplete")
+      (mediaDir "${dataDir}/usenet/tv")
+      (mediaDir "${dataDir}/usenet/movies")
+      (mediaDir "${dataDir}/usenet/music")
+      (mediaDir "${dataDir}/usenet/anime")
+
+      (mediaDir "${dataDir}/media")
+      (mediaDir "${dataDir}/media/tv")
+      (mediaDir "${dataDir}/media/movies")
+      (mediaDir "${dataDir}/media/music")
+      (mediaDir "${dataDir}/media/anime")
+    ];
 
   # ============================================================
   # State Version – do NOT change after install!
   # ============================================================
-  system.stateVersion = "25.11";
+  system.stateVersion = "26.05";
 }

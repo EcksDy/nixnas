@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Pre-commit guard for a PUBLIC repo. Blocks accidental secret leaks:
+#   - private age keys (*.key, personal-age.key, nas.key)
+#   - unencrypted secrets/*.yaml (must be sops-encrypted)
+#   - obvious secret tokens in staged content
+#
+# Install: scripts/install-hooks   (symlinks this to .git/hooks/pre-commit)
+set -euo pipefail
+
+fail() { printf '\033[31m[pre-commit BLOCKED]\033[0m %s\n' "$*" >&2; exit 1; }
+
+staged() { git diff --cached --name-only --diff-filter=ACM; }
+
+# 1. Never allow private age keys
+while IFS= read -r f; do
+  case "$f" in
+    *.key|*personal-age*|*nas.key|.keys/*)
+      fail "attempt to commit a key file: $f" ;;
+  esac
+done < <(staged)
+
+# 2. secrets/*.yaml must be sops-encrypted (contain sops metadata)
+while IFS= read -r f; do
+  case "$f" in
+    secrets/*.yaml)
+      # allow the .example template
+      [ "$f" = "secrets/arr.yaml.example" ] && continue
+      if ! git show ":$f" | grep -q 'ENC\[AES256_GCM'; then
+        fail "$f is NOT sops-encrypted. Run: scripts/secrets encrypt"
+      fi ;;
+  esac
+done < <(staged)
+
+# 3. Heuristic scan of staged content for raw secret tokens.
+# Assemble the pattern from parts so this script never matches ITSELF.
+patterns="$(printf '%s' 'tskey''-auth-[A-Za-z0-9]|cfat''_[A-Za-z0-9]|BEGIN [A-Z ]*PRIVATE KEY|xoxb''-|AKIA[0-9A-Z]{16}')"
+while IFS= read -r f; do
+  case "$f" in
+    secrets/arr.yaml) continue ;;        # encrypted, checked above
+    scripts/pre-commit) continue ;;      # the guard itself references patterns
+    docs/secrets.md) continue ;;         # docs mention token prefixes
+  esac
+  if git show ":$f" 2>/dev/null | grep -Eq "$patterns"; then
+    fail "possible plaintext secret in staged file: $f"
+  fi
+done < <(staged)
+
+exit 0
