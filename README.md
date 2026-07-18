@@ -1,16 +1,17 @@
-# NixOS NAS on a Ugreen DXP4800 Plus
+# NixNAS — Ugreen DXP4800 Plus
 
-![NixOS](https://img.shields.io/badge/NixOS-25.11-5277C3?logo=nixos&logoColor=white)
-![NVMe](https://img.shields.io/badge/NVMe-512GB_ADATA-4CAF50)
+![NixOS](https://img.shields.io/badge/NixOS-26.05-5277C3?logo=nixos&logoColor=white)
 ![btrfs](https://img.shields.io/badge/btrfs-zstd:1-orange)
-![Docker](https://img.shields.io/badge/Docker-on_NVMe-2496ED?logo=docker&logoColor=white)
-![NFS](https://img.shields.io/badge/NFS-2_exports-blue)
-![Fail2Ban](https://img.shields.io/badge/Fail2Ban-active-critical)
+![Docker](https://img.shields.io/badge/Docker-arr_stack-2496ED?logo=docker&logoColor=white)
+![VPN](https://img.shields.io/badge/VPN-ProtonVPN-6D4AFF)
+![Tailscale](https://img.shields.io/badge/Remote-Tailscale-242424?logo=tailscale&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-I wanted a NAS that I actually understand. No proprietary OS, no clicking through web UIs, no mystery services running in the background. Just a plain NixOS system where every single thing is declared in config files I can read, version, and rebuild from scratch in minutes.
+A fully declarative home NAS + media server on NixOS. Plain config files I can read,
+version, and rebuild from scratch — no proprietary OS, no mystery services.
 
-This repo contains the complete NixOS configuration for my home NAS — a Ugreen DXP4800 running a 512GB NVMe for the OS and apps, and a 14TB WD Purple Pro for media storage.
+Ugreen DXP4800 Plus · 512GB NVMe (OS + apps) · 14TB WD Purple Pro (media) ·
+ProtonVPN-protected *arr stack · Tailscale-only remote access.
 
 <p align="center">
   <img src="screenshots/dashboard.png" alt="nixnas-status dashboard" width="750">
@@ -18,125 +19,98 @@ This repo contains the complete NixOS configuration for my home NAS — a Ugreen
   <em>sudo nixnas-status — live system dashboard over SSH</em>
 </p>
 
-## Hardware
+## Documentation
 
-| | |
-|-|-|
-| **Device** | Ugreen DXP4800 Plus (4-Bay) |
-| **CPU** | Intel Pentium Gold 8505 (5C/6T) |
-| **RAM** | 8 GB DDR5 |
-| **OS + Apps** | ADATA LEGEND 900 512GB NVMe → ext4, partitioned |
-| **Data** | WD Purple Pro 14TB (WD141PURP) → btrfs + zstd:1 |
-| **Network** | 2.5GbE (+ unused 10GbE) |
+| Doc | What's in it |
+|---|---|
+| [Base system](docs/base-system.md) | Hardware, boot, network, users, health, fan control, UGOS protection |
+| [Storage](docs/storage.md) | Disk layout, TRaSH folders, hardlinks, permissions, install |
+| [Secrets](docs/secrets.md) | sops-nix + age, Proton Pass key, edit/rotate workflow |
+| [Media stack](docs/media-stack.md) | *arr services, Gluetun/ProtonVPN, Jellyfin QSV, declarative app config |
+| [Networking & remote](docs/networking-remote.md) | Traefik, Cloudflare DNS-01 certs, Tailscale subnet router |
+| [Backup](docs/backup.md) | App-state backup to Cloudflare R2 |
+| [Maintenance](docs/maintenance.md) | Everyday operations, updates, troubleshooting |
 
-## What's In Here
+Design decisions and rationale live in [`planning/`](planning/).
 
-The entire system is ~8 files. Here's what they set up:
-
-**Storage** — disko handles partitioning declaratively. The NVMe is split into three partitions: EFI/boot (1GB), NixOS root (64GB), and `/apps` (remaining ~447GB) for Docker data and configs. The BIOS boots directly from the ADATA NVMe ESP. The 14TB HDD is a single btrfs partition mounted at `/data` with zstd compression and a monthly scrub for integrity.
-
-**Docker** — Docker daemon runs with `data-root` pointed at `/apps/docker` on the NVMe. Compose files and app configs live under `/apps/compose` and `/apps/config`. Media referenced by containers (e.g. Jellyfin) is mounted from `/data/media` on the HDD.
-
-**NFS** — Two shares: one read-write for Proxmox backups (no_root_squash), one read-only for Jellyfin media streaming.
-
-**Health** — smartmontools runs short self-tests daily and long tests weekly, with temperature alerts at 45/55°C. hdparm puts the HDD to sleep after 20 min idle and enables quiet seek mode to reduce noise.
-
-**Security** — Fail2Ban on SSH (5 attempts → 1h ban, escalating to 48h). Firewall open only for SSH and NFS.
-
-**Fan Control** — The DXP4800 Plus uses an ITE IT8613E chip that the mainline kernel doesn't support yet. This config builds the out-of-tree it87 module from source, loads it with `force_id=0x8613`, and a systemd service sets all fans to automatic mode on boot. Quiet at idle, ramps up under load.
-
-**UGOS Protection** — The DXP4800 ships with Ugreen's proprietary OS on an internal NVMe SSD. I keep it intact for warranty. Four independent layers make sure it's never written to: excluded from disko, udev sets it read-only by serial, a systemd service re-applies on boot, and there are no mount entries. Restoring UGOS is just a BIOS boot order change.
-
-## Dashboard
-
-Building a full web interface for a NAS felt like overkill — and kind of against the whole point of running a minimal NixOS system. Instead there's `nixnas-status`, a ~350 line bash script that gives you a live overview of everything that matters, right in your terminal over SSH.
-
-It shows system stats, network, storage with usage bars, all drives with SMART status and temperatures, NFS share status, and all services at a glance. Updates every 5 seconds without flickering (cursor repositioning instead of clear). Runs as `sudo nixnas-status`.
-
-The script is bundled into the NixOS config via `writeShellScriptBin` — no extra installation, it's just there after a rebuild.
-
-## Files
+## Layout
 
 ```
-flake.nix                   # nixpkgs 25.11 + disko
-configuration.nix           # boot, network, users, packages, services, Docker
-disko-config.nix            # NVMe partition layout + HDD btrfs layout
-hardware-configuration.nix  # kernel modules, CPU, firmware
-modules/nfs.nix             # NFS exports
-modules/ugos-protection.nix # 4-layer UGOS SSD protection
-modules/fan-control.nix     # ITE IT8613E out-of-tree driver + auto fan curve
+flake.nix                    # nixpkgs 26.05 + disko + sops-nix
+configuration.nix            # boot, network, users, packages, base services, Docker
+disko-config.nix             # NVMe + HDD partition layout
+hardware-configuration.nix   # kernel modules, CPU, firmware
+modules/
+  ugos-protection.nix        # UGOS SSD read-only protection
+  fan-control.nix            # IT8613E out-of-tree driver + fan curve
+  tinker.nix                 # opencode + proton-pass-cli (manual tinkering)
+  media/                     # arr stack (oci-containers), gluetun, traefik, ...
 scripts/nixnas-status        # live SSH dashboard
+docs/                        # topic guides (see table above)
+planning/                    # decision log
 ```
 
-## Storage Layout
-
-```
-NVMe (OS + Apps) ─ ADATA LEGEND 900 512GB
-├── nvme0n1p1  → /boot       (vfat, 1GB, EFI)
-├── nvme0n1p2  → /           (ext4, 64GB, NixOS root + Nix store)
-└── nvme0n1p3  → /apps       (ext4, ~447GB, Docker data + compose + configs)
-    ├── docker/              (Docker data-root)
-    ├── compose/             (docker-compose files)
-    └── config/              (app config files)
-
-HDD (Media) ─ WD Purple Pro 14TB
-└── sda1       → /data       (btrfs, ~14TB, compress=zstd:1)
-    ├── media/               (Anime, Filme, Serien, Musik)
-    ├── incoming/            (download staging)
-    └── backup/              (Proxmox backups)
-
-UGOS SSD ─ internal NVMe  (READ-ONLY)
-→ Original Ugreen OS, protected for warranty
-→ Shared ESP hosts NixOS + UGOS bootloaders
-```
-
-## Reproducing This
-
-You'll need a Ugreen DXP4800 Plus with an NVMe and HDD. Confirm your HDD device ID matches `disko-config.nix`:
+## Day-to-day
 
 ```bash
-ls /dev/disk/by-id/ | grep ata-WDC
+# Apply config changes
+cd /etc/nixos && sudo nixos-rebuild switch --flake .#nixnas
+
+# Edit a secret (personal age key from Proton Pass)
+export SOPS_AGE_KEY_FILE=~/personal-age.key && sops secrets/arr.yaml
+
+# Container status / logs
+docker ps
+systemctl status docker-<svc>
+journalctl -u docker-<svc> -f
+
+# Restart a service
+sudo systemctl restart docker-<svc>
+
+# Check VPN + forwarded port
+docker logs gluetun | grep -i "port forward"
+docker exec gluetun wget -qO- https://ipinfo.io
+
+# Config drift report
+sudo systemctl start arr-drift.service && git diff state-snapshots/
+
+# Manual backup to R2
+sudo systemctl start arr-backup.service
+
+# Update a container image: bump tag in modules/media/<svc>.nix, then rebuild
 ```
 
-Then install:
+## Install
+
+First-time provisioning (destructive). Details in [storage.md](docs/storage.md) and
+[base-system.md](docs/base-system.md).
 
 ```bash
-# 1. Boot NixOS minimal ISO from USB (use LTS kernel)
-#    Disable WatchDog in BIOS first (it reboots after 180s expecting UGOS)
+# 1. Boot NixOS minimal ISO (LTS kernel). Disable BIOS WatchDog first.
 
-# 2. Set the UGOS SSD read-only before touching anything
+# 2. Protect the UGOS SSD before anything
 blockdev --setro /dev/disk/by-id/nvme-YSO128GTLCW-E3C-2_511250811096010990
 
-# 3. Partition drives with disko
+# 3. Confirm HDD id matches disko-config.nix, then partition
+ls /dev/disk/by-id/ | grep ata-WDC
 nix --experimental-features "nix-command flakes" run github:nix-community/disko -- \
   --mode disko ./disko-config.nix
 
-# 4. Clone this repo into /mnt/etc/nixos
+# 4. Clone repo + install
 git clone https://github.com/daskladas/nixnas.git /mnt/etc/nixos
-
-# 5. Build and install (two-step workaround for a known flake bug)
 nix --experimental-features "nix-command flakes" build \
   .#nixosConfigurations.nixnas.config.system.build.toplevel --store /mnt
 nixos-install --root /mnt --system ./result --no-root-passwd
 
-# 6. In BIOS, set the ADATA NVMe as the boot device
-#    The NixOS ESP on /boot is already on the ADATA — no extra steps needed
-
-# 7. Reboot, remove USB, NixOS should boot
-# 8. After first login: change password with passwd
-```
-
-After first boot, any future changes are just:
-
-```bash
-cd /etc/nixos && sudo nixos-rebuild switch --flake .#nixnas
+# 5. Set ADATA NVMe as BIOS boot device. Reboot, remove USB.
+# 6. First login: passwd. Then provision secrets (docs/secrets.md).
 ```
 
 ## Known Quirks
 
-- **WatchDog reboots** — BIOS sends a 180s watchdog expecting UGOS to respond; disable it in BIOS settings
-- **nixos-install crash** — `nix flake build` + `nixos-install --flake` hits an assertion error; the two-step build-then-install workaround above avoids it
-- **IT8613E fan chip** — needs an out-of-tree `it87` kernel module; included in this config and built automatically
+- **WatchDog reboots** — disable the 180s BIOS watchdog (expects UGOS).
+- **nixos-install crash** — use the two-step build-then-install above (flake assertion bug).
+- **IT8613E fan chip** — needs the out-of-tree `it87` module; built automatically.
 
 ## License
 
