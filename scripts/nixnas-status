@@ -1,27 +1,19 @@
 #!/usr/bin/env bash
 # =============================================================================
-# nixnas-status -- NixNAS Live Dashboard v3
+# nixnas-status -- NixNAS Live Dashboard v4 (media-stack edition)
 # =============================================================================
-# Verwendung : sudo nixnas-status          (default 5s refresh)
-#              sudo nixnas-status -r 3      (custom refresh)
-#              sudo nixnas-status --once    (einmal anzeigen, kein Loop)
+# Usage : sudo nixnas-status          (default 5s refresh)
+#         sudo nixnas-status -r 3      (custom refresh)
+#         sudo nixnas-status --once    (render once, no loop)
 #
-# NixOS Integration (configuration.nix):
-#   environment.systemPackages = with pkgs; [
-#     bc smartmontools hdparm
-#     (writeShellScriptBin "nixnas-status" (builtins.readFile ./scripts/nixnas-status))
-#   ];
+# Topology: 1x NVMe (OS+apps) + 1x HDD (media, btrfs). No RAID, no NFS.
+# Adds a CONTAINERS panel (media stack) and VPN status.
 # =============================================================================
 
 set -euo pipefail
 
-# =============================================================================
-# KONFIGURATION
-# =============================================================================
-
 REFRESH=5
 ONCE=false
-
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -r|--refresh) REFRESH="$2"; shift 2 ;;
@@ -34,33 +26,31 @@ IFACE="enp3s0"
 GATEWAY="192.168.60.1"
 DNS_SERVER="192.168.60.2"
 
-HDD_DRIVES=("sda"        "sdb"        "sdc"       )
-HDD_LABEL=(  "IronWolf1"  "IronWolf2"  "IronWolf3" )
+HDD_DRIVES=("sda")
+HDD_LABEL=("WD Purple")
+NVME_DRIVES=("nvme0n1")
+NVME_LABEL=("ADATA 900")
 
-# Detect UGOS SSD device (may shift after PCI rebind)
+# Detect UGOS SSD device (serial-matched; device node may shift)
+UGOS_SERIAL="nvme-YSO128GTLCW-E3C-2_511250811096010990"
 UGOS_DEV=""
-for candidate in nvme2n1 nvme2n2 nvme3n1; do
-    if [[ -e "/dev/$candidate" ]] && readlink -f "/dev/disk/by-id/nvme-YSO128GTLCW-E3C-2_511250701135025164" 2>/dev/null | grep -q "$candidate"; then
-        UGOS_DEV="$candidate"
-        break
+for candidate in nvme1n1 nvme2n1 nvme3n1; do
+    if [[ -e "/dev/$candidate" ]] && readlink -f "/dev/disk/by-id/${UGOS_SERIAL}" 2>/dev/null | grep -q "$candidate"; then
+        UGOS_DEV="$candidate"; break
     fi
 done
 
-NVME_DRIVES=("nvme0n1"  "nvme1n1")
-NVME_LABEL=(  "P300 #1"  "P300 #2" )
+SERVICES=("sshd" "docker" "smartd" "ugos-protect" "fail2ban" "fan-control" "tailscaled" "traefik")
+SVC_SHORT=("sshd" "docker" "smartd" "ugos"         "f2ban"   "fans"        "tscale"     "traefik")
 
-RAID_DATA="md126"
-RAID_OS="md127"
-
-SERVICES=("sshd" "nfs-server" "smartd" "ugos-protect" "fail2ban" "fan-control" "btrfs-scrub-data.timer" "nix-gc.timer")
-SVC_SHORT=("sshd" "nfs"   "smartd" "ugos"         "f2ban"   "fans"        "scrub"                  "gc"          )
+# Media stack containers to show (name:label)
+CONTAINERS=("gluetun" "qbittorrent" "sabnzbd" "prowlarr" "sonarr" "sonarr-anime" "radarr" "lidarr" "bazarr" "jellyfin" "jellyseerr")
 
 NIXOS_CONFIG="/etc/nixos"
 
 # =============================================================================
-# FARBEN
+# COLORS
 # =============================================================================
-
 if [[ -t 1 ]]; then
     RST="\e[0m"; BLD="\e[1m"; DIM="\e[2m"
     GRN="\e[32m"; YLW="\e[33m"; RED="\e[31m"; CYN="\e[36m"
@@ -73,12 +63,10 @@ fi
 # =============================================================================
 # HELPERS
 # =============================================================================
-
 W=80
-
 hr()  { printf "  ${DIM}"; printf '─%.0s' $(seq 1 $((W-4))); printf "${RST}\n"; }
 hdr() { printf "  ${BCYN}━━ %s${RST}\n" "$1"; }
-dot() { case "$1" in active|PASSED|clean*) printf "${BGRN}●${RST}" ;; degraded*|resyncing*) printf "${BYLW}●${RST}" ;; *) printf "${BRED}●${RST}" ;; esac; }
+dot() { case "$1" in active|PASSED|clean*|running|healthy) printf "${BGRN}●${RST}" ;; degraded*|starting|unhealthy) printf "${BYLW}●${RST}" ;; *) printf "${BRED}●${RST}" ;; esac; }
 
 bar() {
     local used=${1:-0} total=${2:-1} width=${3:-20}
@@ -105,10 +93,7 @@ fmt() {
     else                               printf "%d KiB"    "$(( b / 1024 ))"
     fi
 }
-
 fmtr() { local v="$1"; [[ "$v" == .* ]] && echo "0${v}" || echo "$v"; }
-
-# ── Datensammlung ────────────────────────────────────────────────────────────
 
 blk_stat() {
     local f="/sys/block/$1/stat"
@@ -153,10 +138,14 @@ nt() { smartctl -A "/dev/$1" 2>/dev/null | awk '/^Temperature:/{print $2; exit}'
 hh() { smartctl -A "/dev/$1" 2>/dev/null | awk '$1==9{print $10; exit}' || true; }
 nh() { smartctl -A "/dev/$1" 2>/dev/null | awk '/Power On Hours/{gsub(/,/,"",$4); print $4; exit}' || true; }
 
+# container state: running/exited/... via docker; "n/a" if docker absent
+cstate() { docker inspect -f '{{.State.Status}}' "$1" 2>/dev/null || echo "absent"; }
+# container health if defined
+chealth() { docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$1" 2>/dev/null || true; }
+
 # =============================================================================
 # RENDER
 # =============================================================================
-
 render() {
     local now hn uptime_str kernel gen rebuild_date flake_age
     now=$(date "+%Y-%m-%d  %H:%M:%S")
@@ -176,54 +165,39 @@ render() {
         END{printf "%.1f %.1f %d",(t-a)/1048576,t/1048576,(t-a)*100/t}' /proc/meminfo)"
     local load1 load5 load15; read -r load1 load5 load15 _ _ <<< "$(cat /proc/loadavg)"
 
-    local ip gw link_speed ping_gw ping_dns
+    local ip link_speed ping_gw ping_dns
     ip=$(ip -4 addr show "$IFACE" 2>/dev/null | awk '/inet /{print $2}')
-    gw=$(ip route show default 2>/dev/null | awk '/default/{print $3; exit}')
     link_speed=$(cat "/sys/class/net/${IFACE}/speed" 2>/dev/null || echo "?")
     ping_gw=$(ping -c1 -W1 "$GATEWAY" 2>/dev/null | awk -F/ '/avg/{printf "%.1f",$5}' || echo "---")
     ping_dns=$(ping -c1 -W1 "$DNS_SERVER" 2>/dev/null | awk -F/ '/avg/{printf "%.1f",$5}' || echo "---")
 
+    # Tailscale
+    local ts_ip=""
+    ts_ip=$(tailscale ip -4 2>/dev/null | head -1 || true)
+
     # Storage
-    local d_total=0 d_used=0 d_free=0 r_total r_used r_free
+    local d_total=0 d_used=0 d_free=0 r_total r_used r_free a_total a_used a_free
     local btrfs_out; btrfs_out=$(btrfs filesystem usage -b /data 2>/dev/null) || true
     if [[ -n "$btrfs_out" ]]; then
         d_total=$(echo "$btrfs_out" | awk '/Device size:/{print $NF}')
-        d_used=$(echo "$btrfs_out" | awk '/^\s+Used:/{print $NF}')
+        d_used=$(echo "$btrfs_out" | awk '/^[[:space:]]+Used:/{print $NF}')
         d_free=$(echo "$btrfs_out" | awk '/Free \(statfs/{print $NF}')
     fi
     r_total=$(df -B1 / 2>/dev/null | awk 'NR==2{print $2}')
     r_used=$(df -B1 / 2>/dev/null | awk 'NR==2{print $3}')
     r_free=$(df -B1 / 2>/dev/null | awk 'NR==2{print $4}')
+    a_total=$(df -B1 /apps 2>/dev/null | awk 'NR==2{print $2}')
+    a_used=$(df -B1 /apps 2>/dev/null | awk 'NR==2{print $3}')
+    a_free=$(df -B1 /apps 2>/dev/null | awk 'NR==2{print $4}')
 
-    # RAID
-    raid_line() {
-        local dev=$1 detail state level members active
-        detail=$(mdadm --detail "/dev/$dev" 2>/dev/null) || { echo "error|-|-|-"; return; }
-        state=$(echo "$detail" | awk -F': +' '/^\s+State :/{gsub(/ /,"",$2); print $2}')
-        level=$(echo "$detail" | awk -F': +' '/Raid Level/{print $2}')
-        members=$(echo "$detail" | awk '/Raid Devices/{print $NF}')
-        active=$(echo "$detail" | awk '/Active Devices/{print $NF}')
-        local rl; rl=$(awk "/^${dev} /{f=1} f && /%/{print; exit}" /proc/mdstat)
-        if [[ -n "$rl" ]]; then
-            local pct; pct=$(echo "$rl" | grep -oP '\d+\.\d+%' | head -1)
-            echo "resync|${level^^}|$members|$active|$pct"
-        else
-            echo "$state|${level^^}|$members|$active|"
-        fi
-    }
-
-    local dr or; dr=$(raid_line "$RAID_DATA"); or=$(raid_line "$RAID_OS")
-
-    # NFS
-    local nfs_st; nfs_st=$(systemctl is-active nfs-server 2>/dev/null || echo "inactive")
-    local -a nfs_exp=()
-    while IFS= read -r l; do [[ -n "$l" ]] && nfs_exp+=("$l"); done < <(exportfs -s 2>/dev/null)
-    local -a nfs_cl=()
-    while IFS= read -r l; do [[ -n "$l" ]] && nfs_cl+=("$l"); done < <(showmount -a localhost 2>/dev/null | tail -n +2 || true)
+    # VPN (gluetun): egress IP + forwarded port
+    local vpn_ip="" vpn_port=""
+    if [[ "$(cstate gluetun)" == "running" ]]; then
+        vpn_ip=$(docker exec gluetun wget -qO- -T2 https://ipinfo.io/ip 2>/dev/null | head -1 || true)
+        vpn_port=$(docker logs --tail 200 gluetun 2>/dev/null | grep -oiE 'port forwarded is [0-9]+' | tail -1 | grep -oE '[0-9]+' || true)
+    fi
 
     # ── OUTPUT ───────────────────────────────────────────────────────────────
-
-    # Use cursor reposition instead of clear (flicker-free)
     if $ONCE; then clear; else tput cup 0 0 2>/dev/null || clear; fi
 
     local pad=$(( W - 16 - ${#hn} - ${#now} ))
@@ -236,7 +210,7 @@ render() {
     printf "  CPU ${BLD}%s${RST}  ${DIM}│${RST}  Load: %s %s %s  ${DIM}│${RST}  Uptime: %s  ${DIM}│${RST}  Kernel: %s\n" \
         "${CPU_PCT}%" "$load1" "$load5" "$load15" "$uptime_str" "$kernel"
     printf "  Mem ${BLD}%s${RST}/%s GiB  " "$ram_used" "$ram_total"
-    bar $(echo "$ram_used * 1073741824 / 1" | bc) $(echo "$ram_total * 1073741824 / 1" | bc) 20
+    bar "$(echo "$ram_used * 1073741824 / 1" | bc)" "$(echo "$ram_total * 1073741824 / 1" | bc)" 20
     printf "  ${DIM}│${RST}  Gen #%s ${DIM}(%s)${RST}" "$gen" "$rebuild_date"
     if [[ "$flake_age" != "?" ]] && (( flake_age >= 14 )); then
         printf "  ${BYLW}⚠ %sd old${RST}" "$flake_age"
@@ -248,47 +222,35 @@ render() {
     # NETWORK
     printf "\n"
     printf "  ${BCYN}━━ NETWORK${RST}  ${DIM}(%s)${RST}\n" "$IFACE"
-    printf "  IP ${BLD}%-20s${RST} Link ${BLD}%s${RST} Mb/s  RX ${BCYN}%s${RST}  TX ${BCYN}%s${RST} MB/s  Ping ${BLD}%s${RST}/${BLD}%s${RST} ms\n" \
+    printf "  IP ${BLD}%-18s${RST} Link ${BLD}%s${RST}Mb/s  RX ${BCYN}%s${RST} TX ${BCYN}%s${RST}MB/s  Ping ${BLD}%s${RST}/${BLD}%s${RST}ms\n" \
         "${ip:--}" "$link_speed" "$(fmtr "$NET_RX")" "$(fmtr "$NET_TX")" "$ping_gw" "$ping_dns"
+    printf "  Tailscale ${BLD}%s${RST}   VPN egress ${BLD}%s${RST}   fwd port ${BLD}%s${RST}\n" \
+        "${ts_ip:--}" "${vpn_ip:--}" "${vpn_port:--}"
 
     # STORAGE
     printf "\n"
     hdr "STORAGE"
-    printf "  ${BLD}/data${RST}  $(fmt "${d_total:-0}")  "
-    bar "${d_used:-0}" "${d_total:-1}" 25
-    printf "   Used: ${BLD}$(fmt "${d_used:-0}")${RST}  Free: ${BGRN}$(fmt "${d_free:-0}")${RST}\n"
-    printf "  ${BLD}/${RST}      $(fmt "${r_total:-0}")  "
-    bar "${r_used:-0}" "${r_total:-1}" 25
-    printf "   Used: ${BLD}$(fmt "${r_used:-0}")${RST}  Free: ${BGRN}$(fmt "${r_free:-0}")${RST}\n"
-
-    # RAID
-    printf "\n"
-    hdr "RAID"
-    _rr() {
-        local label=$1 dev=$2 info=$3
-        IFS='|' read -r state level members active rpct <<< "$info"
-        printf "  $(dot "$state")  ${BLD}%-7s${RST} %-5s " "$dev" "$level"
-        if [[ -n "$rpct" ]]; then
-            printf "${BYLW}RESYNC %s${RST}" "$rpct"
-        else
-            printf "${BGRN}%s${RST} [%s/%s]" "${state:-?}" "${active:-?}" "${members:-?}"
-        fi
-        printf "  ${DIM}%s${RST}\n" "$label"
-    }
-    _rr "3× IronWolf 8TB → /data" "$RAID_DATA" "$dr"
-    _rr "2× Patriot P300 → /"     "$RAID_OS"   "$or"
+    printf "  ${BLD}/data${RST} $(fmt "${d_total:-0}") "
+    bar "${d_used:-0}" "${d_total:-1}" 22
+    printf " Used ${BLD}$(fmt "${d_used:-0}")${RST} Free ${BGRN}$(fmt "${d_free:-0}")${RST}\n"
+    printf "  ${BLD}/apps${RST} $(fmt "${a_total:-0}") "
+    bar "${a_used:-0}" "${a_total:-1}" 22
+    printf " Used ${BLD}$(fmt "${a_used:-0}")${RST} Free ${BGRN}$(fmt "${a_free:-0}")${RST}\n"
+    printf "  ${BLD}/${RST}     $(fmt "${r_total:-0}") "
+    bar "${r_used:-0}" "${r_total:-1}" 22
+    printf " Used ${BLD}$(fmt "${r_used:-0}")${RST} Free ${BGRN}$(fmt "${r_free:-0}")${RST}\n"
 
     # DRIVES
     printf "\n"
     hdr "DRIVES"
-    printf "  ${DIM}%-10s %-10s %-6s %-5s %5s  %6s       %5s${RST}\n" \
+    printf "  ${DIM}%-10s %-10s %-6s %-5s %6s  %8s  %8s${RST}\n" \
         "Device" "Label" "Health" "Temp" "Hours" "Read" "Write"
     hr
     for i in "${!HDD_DRIVES[@]}"; do
         local d="${HDD_DRIVES[$i]}" h t hrs
         h=$(sh "$d"); t=$(ht "$d"); hrs=$(hh "$d")
         local tc="$GRN"; [[ -n "$t" ]] && (( t >= 45 )) && tc="$YLW"; [[ -n "$t" ]] && (( t >= 55 )) && tc="$RED"
-        printf "  $(dot "${h:-?}") %-9s %-10s %-6s ${tc}%-5s${RST} %5s  %6s MB/s  %5s MB/s\n" \
+        printf "  $(dot "${h:-?}") %-9s %-10s %-6s ${tc}%-5s${RST} %6s  %6s MB/s  %6s MB/s\n" \
             "$d" "${HDD_LABEL[$i]}" "${h:-?}" "${t:--}°C" "${hrs:--}h" \
             "$(fmtr "${IO_R[$d]:-0}")" "$(fmtr "${IO_W[$d]:-0}")"
     done
@@ -296,7 +258,7 @@ render() {
         local d="${NVME_DRIVES[$i]}" h t hrs
         h=$(sh "$d"); t=$(nt "$d"); hrs=$(nh "$d")
         local tc="$GRN"; [[ -n "$t" ]] && (( t >= 50 )) && tc="$YLW"; [[ -n "$t" ]] && (( t >= 70 )) && tc="$RED"
-        printf "  $(dot "${h:-?}") %-9s %-10s %-6s ${tc}%-5s${RST} %5s  %6s MB/s  %5s MB/s\n" \
+        printf "  $(dot "${h:-?}") %-9s %-10s %-6s ${tc}%-5s${RST} %6s  %6s MB/s  %6s MB/s\n" \
             "$d" "${NVME_LABEL[$i]}" "${h:-?}" "${t:--}°C" "${hrs:--}h" \
             "$(fmtr "${IO_R[$d]:-0}")" "$(fmtr "${IO_W[$d]:-0}")"
     done
@@ -304,26 +266,24 @@ render() {
         local h t hrs; h=$(sh "$UGOS_DEV"); t=$(nt "$UGOS_DEV"); hrs=$(nh "$UGOS_DEV")
         local ro; ro=$(blockdev --getro "/dev/$UGOS_DEV" 2>/dev/null || echo "?")
         local tag; [[ "$ro" == "1" ]] && tag="${BGRN}read-only${RST}" || tag="${BRED}WRITABLE!${RST}"
-        printf "  $(dot "${h:-?}") %-9s %-10s %-6s %-5s %5s  %b\n" \
+        printf "  $(dot "${h:-?}") %-9s %-10s %-6s %-5s %6s  %b\n" \
             "$UGOS_DEV" "UGOS" "${h:-?}" "${t:--}°C" "${hrs:--}h" "$tag"
     fi
 
-    # NFS
+    # CONTAINERS
     printf "\n"
-    printf "  ${BCYN}━━ NFS${RST}  $(dot "$nfs_st")  "
-    for exp in "${nfs_exp[@]}"; do
-        local path perm mc=""
-        path=$(echo "$exp" | awk '{print $1}')
-        perm=$(echo "$exp" | grep -oP '\b(rw|ro)\b' | head -1 || true)
-        local pc="$GRN"; [[ "$perm" == "rw" ]] && pc="$YLW"
-        for cl in "${nfs_cl[@]}"; do echo "$cl" | grep -q ":${path}\$" && mc="✓" && break; done
-        if [[ -n "$mc" ]]; then
-            printf "${BGRN}●${RST}${pc}%-4s${RST}%-15s" "${perm:-?}" "$path"
-        else
-            printf "${DIM}●${pc}%-4s${RST}${DIM}%-15s${RST}" "${perm:-?}" "$path"
-        fi
+    hdr "CONTAINERS"
+    local col=0
+    for c in "${CONTAINERS[@]}"; do
+        local st hl show
+        st=$(cstate "$c")
+        hl=$(chealth "$c")
+        show="$st"; [[ -n "$hl" ]] && show="$hl"
+        printf "  $(dot "$show") %-13s" "$c"
+        col=$(( col + 1 ))
+        (( col % 3 == 0 )) && printf "\n"
     done
-    printf "\n"
+    (( col % 3 != 0 )) && printf "\n"
 
     # SERVICES
     printf "\n"
@@ -331,20 +291,20 @@ render() {
     for i in "${!SERVICES[@]}"; do
         local st; st=$(systemctl is-active "${SERVICES[$i]}" 2>/dev/null || echo "inactive")
         printf "$(dot "$st") %-7s " "${SVC_SHORT[$i]}"
+        (( (i+1) % 4 == 0 )) && printf "\n                "
     done
     printf "\n"
 
     # FOOTER
     printf "\n"
     hr
-    printf "  ${DIM}NixNAS v3  │  Refresh: %ss  │  Ctrl+C to exit${RST}\n" "$REFRESH"
+    printf "  ${DIM}NixNAS v4  │  Refresh: %ss  │  Ctrl+C to exit${RST}\n" "$REFRESH"
 }
 
 # =============================================================================
 # MAIN
 # =============================================================================
-
-[[ $EUID -ne 0 ]] && { echo "Bitte als root ausführen: sudo nixnas-status"; exit 1; }
+[[ $EUID -ne 0 ]] && { echo "Run as root: sudo nixnas-status"; exit 1; }
 
 declare -A IO_R IO_W
 NET_RX="0.0"; NET_TX="0.0"; CPU_PCT=0
@@ -353,7 +313,7 @@ if $ONCE; then
     collect_io; render; exit 0
 fi
 
-tput civis 2>/dev/null  # Cursor verstecken
+tput civis 2>/dev/null
 trap 'tput cnorm 2>/dev/null; exit' EXIT INT TERM
 
 while true; do
