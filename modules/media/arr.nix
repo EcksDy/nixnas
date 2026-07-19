@@ -10,11 +10,14 @@ let
   ml = import ./lib.nix { inherit config lib pkgs; };
 
   # Helper for a standard LSIO arr on media-net.
-  arr = { name, ip, port }: ml.onNet {
+  # apiKeyEnv defaults true (servarr __AUTH__APIKEY injection); bazarr sets it
+  # false because it is seeded via config.ini, not env vars, so no env file is
+  # rendered for it (referencing a missing file => docker exit 125).
+  arr = { name, ip, port, apiKeyEnv ? true }: ml.onNet {
     image = config.nixnas.images.${name};
     inherit ip;
     environment = ml.lsioEnv;
-    environmentFiles = ml.apiKeyEnvFile name;
+    environmentFiles = lib.optionals apiKeyEnv (ml.apiKeyEnvFile name);
     volumes = [
       (ml.configVol name)
       ml.dataVol
@@ -27,7 +30,7 @@ in
     sonarr = arr { name = "sonarr"; ip = "172.20.0.10"; port = 8989; };
     radarr = arr { name = "radarr"; ip = "172.20.0.12"; port = 7878; };
     lidarr = arr { name = "lidarr"; ip = "172.20.0.13"; port = 8686; };
-    bazarr = arr { name = "bazarr"; ip = "172.20.0.15"; port = 6767; };
+    bazarr = arr { name = "bazarr"; ip = "172.20.0.15"; port = 6767; apiKeyEnv = false; };
 
     # Second Sonarr for anime. Uses lscr sonarr image with its own config dir.
     sonarr-anime = ml.onNet {
