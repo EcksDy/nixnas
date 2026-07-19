@@ -25,13 +25,13 @@ let
           tls.certresolver = "cloudflare";
         };
         qbittorrent = {
-          rule = "Host(`qbittorrent.${cfg.domain}`)";
+          rule = "Host(`torrent.${cfg.domain}`)";
           entrypoints = [ "websecure" ];
           service = "qbittorrent";
           tls.certresolver = "cloudflare";
         };
         sabnzbd = {
-          rule = "Host(`sabnzbd.${cfg.domain}`)";
+          rule = "Host(`usenet.${cfg.domain}`)";
           entrypoints = [ "websecure" ];
           service = "sabnzbd";
           tls.certresolver = "cloudflare";
@@ -58,7 +58,19 @@ in
             scheme = "https";
           };
         };
-        websecure.address = ":443";
+        websecure = {
+          address = ":443";
+          # Request ONE wildcard cert for the whole domain so every subdomain
+          # (sonarr., torrent., usenet., ...) is covered without a per-host
+          # DNS-01 challenge.
+          http.tls = {
+            certResolver = "cloudflare";
+            domains = [{
+              main = cfg.domain;
+              sans = [ "*.${cfg.domain}" ];
+            }];
+          };
+        };
       };
 
       providers.docker = {
@@ -72,7 +84,12 @@ in
         storage = "/var/lib/traefik/acme.json";
         dnsChallenge = {
           provider = "cloudflare";
+          # Check propagation against the domain's authoritative NS (Cloudflare)
+          # rather than public recursors, which lag and cause
+          # "did not return the expected TXT record / time limit exceeded".
           resolvers = [ "1.1.1.1:53" "8.8.8.8:53" ];
+          # Give Cloudflare a moment to publish the TXT before verifying.
+          delayBeforeCheck = "20";
         };
       };
 
@@ -88,5 +105,9 @@ in
     after = [ "init-${cfg.dockerNetwork}.service" ];
     wants = [ "init-${cfg.dockerNetwork}.service" ];
     serviceConfig.EnvironmentFile = lib.optionals hasSecret [ "/run/secrets/cloudflare_env" ];
+    # Skip lego's own DNS propagation pre-check (public recursors lag and cause
+    # "did not return the expected TXT record / time limit exceeded"). Let the
+    # ACME CA do the authoritative verification instead.
+    environment.CF_PROPAGATION_DISABLE_CHECKS = "true";
   };
 }
