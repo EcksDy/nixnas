@@ -13,16 +13,15 @@
       description = "Base domain for reverse-proxy host rules (e.g. sonarr.\${domain}).";
     };
 
-    hostIP = lib.mkOption {
-      type = lib.types.str;
-      default = "192.168.60.3";
-      description = "Static LAN IP of the NAS.";
-    };
-
     lanSubnet = lib.mkOption {
-      type = lib.types.str;
-      default = "192.168.60.0/24";
-      description = "LAN subnet (advertised by Tailscale subnet router).";
+      type = lib.types.nullOr lib.types.str;
+      default = "192.168.100.0/24";
+      example = "192.168.1.0/24";
+      description = ''
+        LAN subnet to advertise via the Tailscale subnet router. Set null to
+        skip subnet advertising (NAS still joins the tailnet, reachable by its
+        own tailnet IP).
+      '';
     };
 
     timezone = lib.mkOption {

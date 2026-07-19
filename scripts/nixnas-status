@@ -22,9 +22,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-IFACE="enp3s0"
-GATEWAY="192.168.60.1"
-DNS_SERVER="192.168.60.2"
+# Auto-detect the active default-route interface + gateway (DHCP; not hardcoded).
+IFACE="$(ip -o route show default 2>/dev/null | awk '{print $5; exit}')"
+[ -z "$IFACE" ] && IFACE="$(ip -o -4 addr show scope global 2>/dev/null | awk '{print $2; exit}')"
+[ -z "$IFACE" ] && IFACE="unknown"
+GATEWAY="$(ip -o route show default 2>/dev/null | awk '{print $3; exit}')"
+[ -z "$GATEWAY" ] && GATEWAY="n/a"
+DNS_SERVER="$(awk '/^nameserver/{print $2; exit}' /etc/resolv.conf 2>/dev/null)"
+[ -z "$DNS_SERVER" ] && DNS_SERVER="n/a"
 
 HDD_DRIVES=("sda")
 HDD_LABEL=("WD Purple")

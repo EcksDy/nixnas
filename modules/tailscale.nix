@@ -18,12 +18,12 @@ in
 {
   services.tailscale = {
     enable = true;
-    useRoutingFeatures = "server"; # enables net.ipv4.ip_forward
+    # "server" enables ip_forward for subnet routing; "client" if no subnet.
+    useRoutingFeatures = if cfg.lanSubnet != null then "server" else "client";
     authKeyFile = lib.mkIf hasSecret "/run/secrets/tailscale_authkey";
     extraUpFlags = [
-      "--advertise-routes=${cfg.lanSubnet}"
       "--accept-routes"
-    ];
+    ] ++ lib.optional (cfg.lanSubnet != null) "--advertise-routes=${cfg.lanSubnet}";
   };
 
   networking.firewall = {

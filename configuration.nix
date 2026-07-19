@@ -29,15 +29,9 @@
   # ============================================================
   networking = {
     hostName = "nixnas";
-    useDHCP = false;
-    interfaces.enp3s0 = {
-      ipv4.addresses = [{
-        address = "192.168.60.3";
-        prefixLength = 24;
-      }];
-    };
-    defaultGateway = "192.168.60.1";
-    nameservers = [ "192.168.60.2" "192.168.60.1" ];
+    # Stock NixOS default: DHCP on all interfaces, auto DNS/gateway from the
+    # router. Both DXP4800 NICs get a lease if plugged in. No hardcoding.
+    useDHCP = true;
     firewall = {
       enable = true;
       allowedTCPPorts = [

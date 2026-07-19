@@ -22,8 +22,11 @@ and UGOS protection. Everything here is the plain-NAS layer beneath the media st
 
 ## Network
 
-- Static `192.168.60.3/24`, gateway `192.168.60.1`, DNS `192.168.60.2` / `.1`.
-- Interface `enp3s0`.
+- DHCP on all wired NICs (`networking.useDHCP = true`, stock default). IP/gateway/DNS
+  come from the router. LAN is `192.168.100.0/24`, gateway `192.168.100.1`.
+- For a stable address (needed by Cloudflare DNS records + Tailscale route), reserve a
+  fixed DHCP lease for the NAS MAC in the router.
+- Both DXP4800 2.5GbE ports are usable; whichever has a cable gets a lease.
 - Firewall: SSH (22) only on LAN. (NFS removed — see below. Reverse-proxy 80/443 and
   Tailscale added by the media/networking layer.)
 
