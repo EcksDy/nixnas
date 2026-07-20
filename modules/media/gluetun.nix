@@ -2,8 +2,9 @@
 # Gluetun – ProtonVPN gateway (WireGuard + port forwarding)
 #
 # qBittorrent, SABnzbd and Prowlarr share this container's network
-# namespace (network=container:gluetun), so THEIR web-UI ports are
-# published HERE. Kill switch is Gluetun's default firewall (fail-closed).
+# namespace (network=container:gluetun). Their UIs are not published on
+# host ports; Traefik/arr apps reach them only on the private docker net.
+# Kill switch is Gluetun's default firewall (fail-closed).
 #
 # Secret: /run/secrets/gluetun_env (see secrets/arr.yaml.example).
 # ================================================================
@@ -35,13 +36,10 @@ in
 
     environmentFiles = lib.optional hasSecret "/run/secrets/gluetun_env";
 
-    # Web UIs of the VPN-side containers are published here.
-    ports = [
-      "8081:8081"   # qBittorrent WebUI
-      "8080:8080"   # SABnzbd WebUI
-      "9696:9696"   # Prowlarr
-    ];
-
+    # Deliberately do NOT publish qBit/SAB/Prowlarr ports on the NAS host.
+    # Access them through Traefik hostnames only. The FIREWALL_INPUT_PORTS
+    # above opens these ports only inside gluetun's network namespace so
+    # containers on media-net can connect to 172.20.0.3.
     extraOptions = [
       "--cap-add=NET_ADMIN"
       "--device=/dev/net/tun:/dev/net/tun"

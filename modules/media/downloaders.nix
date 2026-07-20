@@ -32,9 +32,13 @@ let
     }
 
     # Ensure qBit listens on gluetun's eth0 address, not just localhost, so
-    # Sonarr/Radarr/Traefik can reach it at 172.20.0.3:8081.
+    # Sonarr/Radarr/Traefik can reach it at 172.20.0.3:8081. Disable qBit's
+    # Host/CSRF checks for internal Docker API clients and Traefik; auth is
+    # still required for the WebUI/API.
     set_conf 'WebUI\\Address' '*'
     set_conf 'WebUI\\ServerDomains' '*'
+    set_conf 'WebUI\\HostHeaderValidation' 'false'
+    set_conf 'WebUI\\CSRFProtection' 'false'
     chown abc:abc "$conf"
   '';
   sabnzbdInit = pkgs.writeShellScript "sabnzbd-init-config" ''
