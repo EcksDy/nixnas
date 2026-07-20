@@ -83,7 +83,7 @@
       '';
       default = {
         gluetun      = "qmcgaw/gluetun:v3.41.1";
-        socketProxy  = "tecnativa/docker-socket-proxy:v0.4.2";
+        socketProxy  = "lscr.io/linuxserver/socket-proxy:2.8.7";
         qbittorrent  = "lscr.io/linuxserver/qbittorrent:5.2.3";
         sabnzbd      = "lscr.io/linuxserver/sabnzbd:5.0.4";
         sonarr       = "lscr.io/linuxserver/sonarr:4.0.19";
@@ -92,7 +92,7 @@
         prowlarr     = "lscr.io/linuxserver/prowlarr:2.4.0";
         bazarr       = "lscr.io/linuxserver/bazarr:1.6.0";
         flaresolverr = "ghcr.io/flaresolverr/flaresolverr:v3.5.0";
-        jellyfin     = "jellyfin/jellyfin:10.11.11";
+        jellyfin     = "lscr.io/linuxserver/jellyfin:10.11.11";
         jellyseerr   = "ghcr.io/seerr-team/seerr:v3.3.0";
         recyclarr    = "ghcr.io/recyclarr/recyclarr:8.7.0";
       };
