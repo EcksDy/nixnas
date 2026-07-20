@@ -241,6 +241,23 @@ seerr_wire() {
       log "seerr: Sonarr link failed: $(printf '%s' "$out" | summarize_error)"
     fi
   fi
+  # Sonarr anime instance. Keep it non-default; users can select it for anime
+  # requests. Profile id 1 is the built-in Any profile on a fresh Sonarr; once
+  # Recyclarr creates the anime profile, change this in the UI if desired.
+  if ! curl -fsS -H "X-Api-Key: $seerr_key" "${base}/settings/sonarr" 2>/dev/null \
+       | jq -e '.[]|select(.name=="Sonarr-Anime")' >/dev/null 2>&1; then
+    local out
+    if out="$(curl -fsS --fail-with-body -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
+      "${base}/settings/sonarr" -d "$(jq -n --arg key "${SONARR_ANIME_API_KEY:-}" '
+        {name:"Sonarr-Anime",hostname:"172.20.0.11",port:8989,apiKey:$key,useSsl:false,
+         baseUrl:"",activeProfileId:1,activeProfileName:"Any",
+         activeDirectory:"/data/media/anime",is4k:false,isDefault:false,
+         enableSeasonFolders:true}')" 2>&1)"; then
+      log "seerr: Sonarr-Anime linked"
+    else
+      log "seerr: Sonarr-Anime link failed: $(printf '%s' "$out" | summarize_error)"
+    fi
+  fi
   # Radarr
   if ! curl -fsS -H "X-Api-Key: $seerr_key" "${base}/settings/radarr" 2>/dev/null \
        | jq -e '.[]|select(.name=="Radarr")' >/dev/null 2>&1; then
