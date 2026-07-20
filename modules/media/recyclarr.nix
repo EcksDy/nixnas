@@ -30,8 +30,35 @@ let
           - template: sonarr-quality-definition-series
           - template: sonarr-v4-quality-profile-web-2160p
           - template: sonarr-v4-custom-formats-web-2160p
-          - template: sonarr-v4-quality-profile-web-1080p
-          - template: sonarr-v4-custom-formats-web-1080p
+        # One "best available" profile: prefer 2160p, fall back to 1080p,
+        # then 720p for older/rare shows. TRaSH's stock WEB-2160p profile is
+        # 2160p-only, so we override its allowed qualities while keeping the
+        # 2160p custom-format scoring.
+        quality_profiles:
+          - name: WEB-2160p
+            reset_unmatched_scores:
+              enabled: true
+            upgrade:
+              allowed: true
+              until_quality: WEB 2160p
+              until_score: 10000
+            min_format_score: 0
+            quality_sort: top
+            qualities:
+              - name: WEB 2160p
+                qualities:
+                  - WEBDL-2160p
+                  - WEBRip-2160p
+              - name: WEB 1080p
+                qualities:
+                  - WEBDL-1080p
+                  - WEBRip-1080p
+              - name: Bluray-1080p
+              - name: WEB 720p
+                qualities:
+                  - WEBDL-720p
+                  - WEBRip-720p
+              - name: Bluray-720p
 
       anime:
         base_url: http://172.20.0.11:8989
@@ -51,8 +78,10 @@ let
           type: movie
         include:
           - template: radarr-quality-definition-movie
-          - template: radarr-quality-profile-hd-bluray-web
-          - template: radarr-custom-formats-hd-bluray-web
+          # SQP-1 (2160p) is TRaSH's streaming-optimized 4K profile that
+          # already includes 2160p first, then 1080p and 720p fallback.
+          - template: radarr-quality-profile-sqp-1-2160p-default
+          - template: radarr-custom-formats-sqp-1-2160p
   '';
 
   ymlFile = pkgs.writeText "recyclarr.yml" recyclarrYml;
