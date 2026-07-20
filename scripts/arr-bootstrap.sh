@@ -124,7 +124,7 @@ qbit_json() {
         --arg user "${QBIT_USER:-admin}" --arg pass "${QBIT_PASS:-}" '
     { enable:true, protocol:"torrent", priority:1, name:"qBittorrent",
       implementation:"QBittorrent", configContract:"QBittorrentSettings",
-      fields:[ {name:"host",value:$host},{name:"port",value:8080},
+      fields:[ {name:"host",value:$host},{name:"port",value:8081},
                {name:"username",value:$user},{name:"password",value:$pass},
                {name:"category",value:$cat} ] }'
 }
@@ -133,7 +133,7 @@ sab_json() {
   jq -n --arg host "$NET_GW" --arg cat "$cat" --arg apikey "${SAB_API_KEY:-}" '
     { enable:true, protocol:"usenet", priority:1, name:"SABnzbd",
       implementation:"Sabnzbd", configContract:"SabnzbdSettings",
-      fields:[ {name:"host",value:$host},{name:"port",value:8085},
+      fields:[ {name:"host",value:$host},{name:"port",value:8080},
                {name:"apiKey",value:$apikey},{name:"category",value:$cat} ] }'
 }
 

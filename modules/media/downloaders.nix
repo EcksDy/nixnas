@@ -3,7 +3,7 @@
 #
 # Both run INSIDE gluetun's network namespace (VPN + kill switch).
 # Their web UIs are reachable via gluetun's published ports
-# (8080 qbit, 8085 sab). Traefik routes to them via the gluetun IP.
+# (8081 qbit, 8080 sab). Traefik routes to them via the gluetun IP.
 # ================================================================
 { config, lib, pkgs, ... }:
 let
@@ -14,7 +14,7 @@ in
     qbittorrent = ml.viaGluetun {
       image = config.nixnas.images.qbittorrent;
       environment = ml.lsioEnv // {
-        WEBUI_PORT = "8080";
+        WEBUI_PORT = "8081";
         TORRENTING_PORT = "6881";
       };
       volumes = [

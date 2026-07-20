@@ -39,8 +39,8 @@ let
       };
       services = {
         prowlarr.loadbalancer.servers = [{ url = "http://${gluetunIP}:9696"; }];
-        qbittorrent.loadbalancer.servers = [{ url = "http://${gluetunIP}:8080"; }];
-        sabnzbd.loadbalancer.servers = [{ url = "http://${gluetunIP}:8085"; }];
+        qbittorrent.loadbalancer.servers = [{ url = "http://${gluetunIP}:8081"; }];
+        sabnzbd.loadbalancer.servers = [{ url = "http://${gluetunIP}:8080"; }];
       };
     };
   };

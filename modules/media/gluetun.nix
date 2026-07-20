@@ -21,17 +21,18 @@ in
     environment = {
       TZ = cfg.timezone;
       # qBittorrent port-forward wiring: Gluetun pushes the forwarded port
-      # to qBittorrent's API when it changes.
+      # to qBittorrent's API when it changes. qBit's WebUI is moved off
+      # SABnzbd's default 8080 because both share this network namespace.
       VPN_PORT_FORWARDING_UP_COMMAND =
-        ''/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":{{PORT}}}" http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1' '';
+        ''/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":{{PORT}}}" http://127.0.0.1:8081/api/v2/app/setPreferences 2>&1' '';
     };
 
     environmentFiles = lib.optional hasSecret "/run/secrets/gluetun_env";
 
     # Web UIs of the VPN-side containers are published here.
     ports = [
-      "8080:8080"   # qBittorrent
-      "8085:8085"   # SABnzbd
+      "8081:8081"   # qBittorrent WebUI
+      "8080:8080"   # SABnzbd WebUI
       "9696:9696"   # Prowlarr
     ];
 
