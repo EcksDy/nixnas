@@ -87,11 +87,6 @@ let
   ymlFile = pkgs.writeText "recyclarr.yml" recyclarrYml;
 in
 {
-  # Render config at activation (overwrite — Nix is source of truth).
-  systemd.tmpfiles.rules = [
-    "L+ ${cfg.appsDir}/recyclarr/recyclarr.yml - - - - ${ymlFile}"
-  ];
-
   virtualisation.oci-containers.containers.recyclarr = ml.onNet {
     image = config.nixnas.images.recyclarr;
     ip = "172.20.0.16";
@@ -100,8 +95,12 @@ in
       CRON_SCHEDULE = "@daily";
     };
     environmentFiles = lib.optional hasSecret "/run/secrets/bootstrap_env";
+    extraOptions = [
+      "--user=${toString cfg.mediaUid}:${toString cfg.mediaGid}"
+    ];
     volumes = [
       "${cfg.appsDir}/recyclarr:/config"
+      "${ymlFile}:/config/recyclarr.yml:ro"
     ];
   };
 }
