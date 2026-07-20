@@ -11,6 +11,32 @@ let
   cfg = config.nixnas;
   hasSecret = builtins.pathExists ../../secrets/arr.yaml;
   sabnzbdEnv = "/run/sabnzbd/env";
+  qbitInit = pkgs.writeShellScript "qbittorrent-init-config" ''
+    set -euo pipefail
+
+    conf=/config/qBittorrent/qBittorrent.conf
+    [ -f "$conf" ] || exit 0
+
+    set_conf() {
+      key="$1"
+      value="$2"
+      tmp="$(mktemp)"
+      awk -F= -v key="$key" -v value="$value" '
+        BEGIN { done=0 }
+        $1 == key { print key "=" value; done=1; next }
+        { print }
+        END { if (!done) print key "=" value }
+      ' "$conf" > "$tmp"
+      cat "$tmp" > "$conf"
+      rm -f "$tmp"
+    }
+
+    # Ensure qBit listens on gluetun's eth0 address, not just localhost, so
+    # Sonarr/Radarr/Traefik can reach it at 172.20.0.3:8081.
+    set_conf 'WebUI\\Address' '*'
+    set_conf 'WebUI\\ServerDomains' '*'
+    chown abc:abc "$conf"
+  '';
   sabnzbdInit = pkgs.writeShellScript "sabnzbd-init-config" ''
     set -euo pipefail
 
@@ -80,6 +106,7 @@ in
       volumes = [
         (ml.configVol "qbittorrent")
         ml.dataVol
+        "${qbitInit}:/custom-cont-init.d/10-qbittorrent-config:ro"
       ];
     };
 

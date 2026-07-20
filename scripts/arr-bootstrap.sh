@@ -230,28 +230,30 @@ seerr_wire() {
   # Sonarr
   if ! curl -fsS -H "X-Api-Key: $seerr_key" "${base}/settings/sonarr" 2>/dev/null \
        | jq -e '.[]|select(.name=="Sonarr")' >/dev/null 2>&1; then
-    if curl -fsS -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
+    local out
+    if out="$(curl -fsS -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
       "${base}/settings/sonarr" -d "$(jq -n --arg key "${SONARR_API_KEY:-}" '
         {name:"Sonarr",hostname:"172.20.0.10",port:8989,apiKey:$key,useSsl:false,
          baseUrl:"",activeProfileId:1,activeProfileName:"Any",
          activeDirectory:"/data/media/tv",is4k:false,isDefault:true,
-         enableSeasonFolders:true}')" >/dev/null 2>&1; then
+         enableSeasonFolders:true}')" 2>&1)"; then
       log "seerr: Sonarr linked"
     else
-      log "seerr: Sonarr link failed (set profile/root in UI)"
+      log "seerr: Sonarr link failed: $(printf '%s' "$out" | summarize_error)"
     fi
   fi
   # Radarr
   if ! curl -fsS -H "X-Api-Key: $seerr_key" "${base}/settings/radarr" 2>/dev/null \
        | jq -e '.[]|select(.name=="Radarr")' >/dev/null 2>&1; then
-    if curl -fsS -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
+    local out
+    if out="$(curl -fsS -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
       "${base}/settings/radarr" -d "$(jq -n --arg key "${RADARR_API_KEY:-}" '
         {name:"Radarr",hostname:"172.20.0.12",port:7878,apiKey:$key,useSsl:false,
          baseUrl:"",activeProfileId:1,activeProfileName:"Any",
-         activeDirectory:"/data/media/movies",is4k:false,isDefault:true}')" >/dev/null 2>&1; then
+         activeDirectory:"/data/media/movies",is4k:false,isDefault:true}')" 2>&1)"; then
       log "seerr: Radarr linked"
     else
-      log "seerr: Radarr link failed (set profile/root in UI)"
+      log "seerr: Radarr link failed: $(printf '%s' "$out" | summarize_error)"
     fi
   fi
 }
