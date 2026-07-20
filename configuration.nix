@@ -63,6 +63,11 @@
     description = "Media stack service user";
   };
 
+  # Remember sudo authentication for 3 hours (sudo uses minutes here).
+  security.sudo.extraConfig = ''
+    Defaults timestamp_timeout=180
+  '';
+
   # ============================================================
   # SSH
   # ============================================================
