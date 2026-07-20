@@ -1,13 +1,14 @@
 # ================================================================
-# Jellyfin (Intel Quick Sync transcode) + Jellyseerr (requests)
+# Jellyfin (Intel Quick Sync transcode) + Seerr (requests)
 #
 # Jellyfin uses the LinuxServer.io image with /dev/dri passthrough for QSV.
-# Runs as media:media via PUID/PGID. Jellyseerr wires to Jellyfin + arr.
+# Runs as media:media via PUID/PGID. Seerr wires to Jellyfin + arr.
 # ================================================================
 { config, lib, pkgs, ... }:
 let
   ml = import ./lib.nix { inherit config lib pkgs; };
   cfg = config.nixnas;
+  uidgid = "${toString cfg.mediaUid}:${toString cfg.mediaGid}";
   # Resolve host GIDs for QSV device access so --group-add is accurate
   # (numeric GIDs work inside the container regardless of its group db).
   renderGid = toString config.users.groups.render.gid;
@@ -35,17 +36,21 @@ in
       labels = ml.traefikLabels { name = "jellyfin"; port = 8096; };
     };
 
-    jellyseerr = ml.onNet {
-      image = config.nixnas.images.jellyseerr;
+    seerr = ml.onNet {
+      image = config.nixnas.images.seerr;
       ip = "172.20.0.5";
       environment = {
         TZ = cfg.timezone;
         LOG_LEVEL = "info";
       };
       volumes = [
-        "${cfg.appsDir}/jellyseerr:/app/config"
+        "${cfg.appsDir}/seerr:/app/config"
       ];
-      labels = ml.traefikLabels { name = "jellyseerr"; port = 5055; };
+      # seerr-team/seerr runs as node:node (1000:1000) by default, but our
+      # appdata dirs are owned by media:media. Run it as media for writable
+      # /app/config without host-side chown drift.
+      extraOptions = [ "--user=${uidgid}" ];
+      labels = ml.traefikLabels { name = "seerr"; port = 5055; };
     };
   };
 }

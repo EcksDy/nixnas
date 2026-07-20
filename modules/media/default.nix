@@ -6,7 +6,7 @@
 #   - per-service config dirs on /apps/config (owned media:media)
 #
 # Static IP plan (172.20.0.0/24):
-#   .2 socket-proxy   .3 gluetun      .4 jellyfin    .5 jellyseerr
+#   .2 socket-proxy   .3 gluetun      .4 jellyfin    .5 seerr
 #   .10 sonarr        .11 sonarr-anime .12 radarr    .13 lidarr
 #   .14 prowlarr(vpn) .15 bazarr       .16 recyclarr
 #   qbittorrent/sabnzbd share gluetun's namespace (no own IP)
@@ -69,7 +69,7 @@ in
       "prowlarr"
       "bazarr"
       "jellyfin"
-      "jellyseerr"
+      "seerr"
       "recyclarr"
     ];
 }

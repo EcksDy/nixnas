@@ -8,7 +8,7 @@ backed up (14TB, single disk — accepted risk).
 ## What is / isn't backed up
 
 - **IN**: `/apps/config/*` — all per-service state: arr databases (download/import
-  history), Jellyfin users + watch history + "continue watching", Jellyseerr requests,
+  history), Jellyfin users + watch history + "continue watching", Seerr requests,
   indexer credentials, qBittorrent/SABnzbd queues. Tens of MB.
 - **OUT**: `/data` media (too large), `/apps/docker` images (re-pullable), in-progress
   downloads.

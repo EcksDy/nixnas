@@ -47,4 +47,4 @@ Remote:   device ──Tailscale──> 192.168.60.0/24 (subnet route) ──> T
 Deliberately skipped. A tunnel means public exposure, and Jellyfin streaming over the
 free tier risks Cloudflare's ToS. Cloudflare is used **only** for DNS records and the
 DNS-01 cert token. If non-Tailscale sharing is ever needed, revisit (tunnel
-Jellyfin/Jellyseerr behind Cloudflare Access).
+Jellyfin/Seerr behind Cloudflare Access).

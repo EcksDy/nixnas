@@ -131,7 +131,7 @@ Values you need:
   afterwards (Machines → nixnas → Edit route settings).
 - **R2**: access key id / secret / account id / bucket for backups.
 - **arr API keys**: one per app — generate with `openssl rand -hex 16` each.
-- **qBittorrent / SABnzbd / Jellyfin / Jellyseerr**: fill after first boot of those apps
+- **qBittorrent / SABnzbd / Jellyfin / Seerr**: fill after first boot of those apps
   (see 2.6); can start empty and re-edit later.
 
 Commit the ENCRYPTED file:
@@ -167,7 +167,7 @@ start, `arr-apikeys` seeds keys, and `arr-bootstrap` runs its ONE automatic reco
    `http://localhost:8191` if needed.
 4. **Jellyfin**: run the setup wizard, create libraries pointing at
    `/media/{tv,movies,anime,music}`, create an API key → `JELLYFIN_API_KEY`.
-5. **Jellyseerr**: create admin user, generate API key → `JELLYSEERR_API_KEY`.
+5. **Seerr**: create admin user, generate API key → `SEERR_API_KEY`.
 
 After filling those, re-encrypt + push + `nixos-rebuild switch`, then run a reconcile:
 ```bash

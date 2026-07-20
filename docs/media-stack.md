@@ -12,7 +12,7 @@ hand-written module per service under `modules/media/`.
 | Service | Role | VPN | Access |
 |---|---|---|---|
 | Jellyfin | Streaming (Intel QSV transcode) | no | LAN + Tailscale |
-| Jellyseerr | Request portal | no | LAN + Tailscale |
+| Seerr | Request portal | no | LAN + Tailscale |
 | Sonarr | TV management | no | LAN + Tailscale |
 | Sonarr-anime | Anime TV (absolute numbering, anime formats) | no | LAN + Tailscale |
 | Radarr | Movies (anime movies via profile) | no | LAN + Tailscale |
@@ -109,12 +109,12 @@ connections via `config.ini` before first start (idempotent).
 **FlareSolverr** shares gluetun's namespace; add it as a proxy in Prowlarr at
 `http://localhost:8191` and tag Cloudflare-protected indexers.
 
-**Jellyseerr**: once you create the admin user in its UI and add `JELLYSEERR_API_KEY` to
+**Seerr**: once you create the admin user in its UI and add `SEERR_API_KEY` to
 sops, the reconcile links Sonarr/Radarr automatically (best-effort; set quality
 profile/root in the UI if it reports a link failure).
 
 Not automated (one-time UI steps): Prowlarr indexer credentials, qBittorrent WebUI
-password, Jellyfin first-run wizard, Jellyseerr admin user + API key.
+password, Jellyfin first-run wizard, Seerr admin user + API key.
 
 Volatile state that is *not* enforced is protected by the [backup](backup.md).
 

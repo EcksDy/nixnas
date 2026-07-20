@@ -93,7 +93,7 @@
         bazarr       = "lscr.io/linuxserver/bazarr:1.6.0";
         flaresolverr = "ghcr.io/flaresolverr/flaresolverr:v3.5.0";
         jellyfin     = "lscr.io/linuxserver/jellyfin:10.11.11";
-        jellyseerr   = "ghcr.io/seerr-team/seerr:v3.3.0";
+        seerr        = "ghcr.io/seerr-team/seerr:v3.3.0";
         recyclarr    = "ghcr.io/recyclarr/recyclarr:8.7.0";
       };
     };
