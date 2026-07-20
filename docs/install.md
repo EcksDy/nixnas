@@ -160,8 +160,9 @@ start, `arr-apikeys` seeds keys, and `arr-bootstrap` runs its ONE automatic reco
 
 ### 2.6 One-time UI steps (not automatable)
 
-1. **qBittorrent**: `docker logs qbittorrent | grep -i password` → login → set a permanent
-   password → put it in `secrets/arr.yaml` (`QBIT_PASS`).
+1. **qBittorrent**: `docker logs qbittorrent | grep -i password` → login →
+   Tools → Options → Web UI → API Key → Generate → put it in `secrets/arr.yaml`
+   as `QBIT_API_KEY`.
 2. **SABnzbd**: finish its wizard → copy its API key → `SAB_API_KEY`.
 3. **Prowlarr**: add your indexers (with credentials). Add FlareSolverr proxy
    `http://localhost:8191` if needed.

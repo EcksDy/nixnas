@@ -145,15 +145,17 @@ reconcile() {
 # ---- desired-state builders -----------------------------------
 
 qbit_json() {
-  local cat="$1"
-  jq -n --arg host "$NET_GW" --arg cat "$cat" \
-        --arg user "${QBIT_USER:-admin}" --arg pass "${QBIT_PASS:-}" '
+  local cat="$1" cat_field="tvCategory"
+  [ "$cat" = "movies" ] && cat_field="movieCategory"
+
+  jq -n --arg host "$NET_GW" --arg cat "$cat" --arg cat_field "$cat_field" \
+        --arg apikey "${QBIT_API_KEY:-}" '
     { enable:true, protocol:"torrent", priority:1, name:"qBittorrent",
       implementation:"QBittorrent", configContract:"QBittorrentSettings",
       fields:[ {name:"host",value:$host},{name:"port",value:8081},
                {name:"useSsl",value:false},{name:"urlBase",value:""},
-               {name:"username",value:$user},{name:"password",value:$pass},
-               {name:"category",value:$cat} ] }'
+               {name:"apiKey",value:$apikey},
+               {name:$cat_field,value:$cat} ] }'
 }
 sab_json() {
   local cat="$1"
@@ -236,7 +238,7 @@ seerr_wire() {
       "${base}/settings/sonarr" -d "$(jq -n --arg key "${SONARR_API_KEY:-}" '
         {name:"Sonarr",hostname:"172.20.0.10",port:8989,apiKey:$key,useSsl:false,
          baseUrl:"",activeProfileId:1,activeProfileName:"WEB-2160p",
-         activeDirectory:"/data/media/tv",is4k:false,
+         activeDirectory:"/data/media/tv",is4k:false,isDefault:true,
          enableSeasonFolders:true}')" 2>&1)"; then
       log "seerr: Sonarr linked"
     else
@@ -251,7 +253,7 @@ seerr_wire() {
       "${base}/settings/radarr" -d "$(jq -n --arg key "${RADARR_API_KEY:-}" '
         {name:"Radarr",hostname:"172.20.0.12",port:7878,apiKey:$key,useSsl:false,
          baseUrl:"",activeProfileId:1,activeProfileName:"SQP-1 (2160p)",
-         activeDirectory:"/data/media/movies",minimumAvailability:"released",is4k:false}')" 2>&1)"; then
+         activeDirectory:"/data/media/movies",minimumAvailability:"released",is4k:false,isDefault:true}')" 2>&1)"; then
       log "seerr: Radarr linked"
     else
       log "seerr: Radarr link failed: $(printf '%s' "$out" | summarize_error)"
