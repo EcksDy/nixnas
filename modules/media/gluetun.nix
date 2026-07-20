@@ -25,6 +25,12 @@ in
       # SABnzbd's default 8080 because both share this network namespace.
       VPN_PORT_FORWARDING_UP_COMMAND =
         ''/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":{{PORT}}}" http://127.0.0.1:8081/api/v2/app/setPreferences 2>&1' '';
+
+      # Containers sharing gluetun's network namespace listen on gluetun's
+      # eth0 address (172.20.0.3), but gluetun's firewall blocks inbound
+      # traffic on the default interface unless explicitly allowed. These are
+      # needed for Traefik and the non-VPN arr apps to reach the VPN-side UIs.
+      FIREWALL_INPUT_PORTS = "8080,8081,9696";
     };
 
     environmentFiles = lib.optional hasSecret "/run/secrets/gluetun_env";

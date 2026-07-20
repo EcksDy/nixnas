@@ -118,6 +118,13 @@ reconcile() {
         log "  WARN create ${ep} ${wname} failed: $(printf '%s' "$out" | summarize_error)"
       fi
     else
+      # Some Servarr collections (notably rootfolder) support create/delete but
+      # not PUT. If the desired item already exists, it is already reconciled.
+      if [ "$ep" = "rootfolder" ]; then
+        log "  ok ${ep}: ${wname}"
+        continue
+      fi
+
       eid="$(echo "$existing" | jq -r '.id')"
       # merge id into desired and PUT (update)
       local merged
@@ -125,7 +132,11 @@ reconcile() {
       log "  update ${ep}: ${wname}"
       local out
       if ! out="$(api "$key" PUT "${url}/${eid}" "$merged" 2>&1)"; then
-        log "  WARN update ${ep} ${wname} failed: $(printf '%s' "$out" | summarize_error)"
+        if printf '%s' "$out" | grep -q '405'; then
+          log "  ok ${ep}: ${wname} already exists (API does not support update/PUT)"
+        else
+          log "  WARN update ${ep} ${wname} failed: $(printf '%s' "$out" | summarize_error)"
+        fi
       fi
     fi
   done
