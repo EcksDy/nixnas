@@ -6,9 +6,9 @@
 # reconcile can DELETE drifted resources (config wins), we never
 # auto-repeat it. A stamp file gates the first run.
 #
-#   Re-run by hand:  sudo systemctl start arr-bootstrap.service
-#   Force first-run again: sudo rm /apps/config/.arr-bootstrapped
-#   Follow logs:     journalctl -u arr-bootstrap.service -f
+#   Reconcile now:   sudo systemctl start arr-reconcile.service
+#   Force first-run: sudo rm /apps/config/.arr-bootstrapped && sudo systemctl start arr-bootstrap.service
+#   Follow logs:     journalctl -u arr-reconcile.service -f
 #
 # Reconciles: download clients, root folders, Prowlarr applications.
 # Indexers are never touched. Needs /run/secrets/bootstrap_env.
@@ -39,7 +39,7 @@ lib.mkIf hasSecret {
   systemd.services.arr-bootstrap = {
     description = "Reconcile arr stack wiring via APIs";
     # Auto-run once on (first) boot; the stamp makes it a no-op thereafter.
-    # Manual `systemctl start` always runs the full reconcile regardless.
+    # Manual full reconcile is provided by arr-reconcile.service below.
     wantedBy = [ "multi-user.target" ];
     after = [
       "docker-sonarr.service"

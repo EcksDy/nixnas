@@ -2,8 +2,8 @@
 # Download clients – qBittorrent (torrents) + SABnzbd (usenet)
 #
 # Both run INSIDE gluetun's network namespace (VPN + kill switch).
-# Their web UIs are reachable via gluetun's published ports
-# (8081 qbit, 8080 sab). Traefik routes to them via the gluetun IP.
+# Their raw ports are deliberately NOT published on the NAS/LAN. Traefik
+# reaches them on the internal media-net gluetun IP (8081 qBit, 8080 SAB).
 # ================================================================
 { config, lib, pkgs, ... }:
 let

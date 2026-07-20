@@ -40,8 +40,8 @@ in
       "tailscale_authkey" = { };
       # rclone/R2 backup config (rendered as env file)
       "r2_env" = { };
-      # Pinned arr API keys + download-client creds for seeding + bootstrap.
-      # Readable by the media user so seeding/bootstrap (run as media) can source it.
+      # Pinned arr API keys plus app-integration keys (qBit/SAB/Jellyfin/Seerr).
+      # Readable by the media user so Recyclarr and bootstrap can source it.
       "bootstrap_env" = {
         owner = "media";
         group = "media";

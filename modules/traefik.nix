@@ -14,7 +14,7 @@ let
   gluetunIP = "172.20.0.3";
   hasSecret = builtins.pathExists ../secrets/arr.yaml;
 
-  # VPN-side services: routed to gluetun's IP + published ports.
+  # VPN-side services: routed to gluetun's internal IP/ports (not NAS host-published).
   dynamicConfig = {
     http = {
       routers = {

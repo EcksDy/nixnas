@@ -127,10 +127,10 @@ Values you need:
 - **Cloudflare**: DNS-edit API token (Zone:DNS:Edit + Zone:Zone:Read) for `8004228.xyz`.
 - **Tailscale**: a **reusable, non-ephemeral** auth key from
   login.tailscale.com/admin/settings/keys (Reusable ON, Ephemeral OFF). The NAS auto-joins
-  on first boot and advertises `192.168.60.0/24`; approve that route in the admin console
+  on first boot and advertises `192.168.100.0/24`; approve that route in the admin console
   afterwards (Machines → nixnas → Edit route settings).
 - **R2**: access key id / secret / account id / bucket for backups.
-- **arr API keys**: one per app — generate with `openssl rand -hex 16` each.
+- **arr API keys**: Sonarr, Sonarr-Anime, Radarr, Prowlarr, and Bazarr — generate each with `openssl rand -hex 16`.
 - **qBittorrent / SABnzbd / Jellyfin / Seerr**: fill after first boot of those apps
   (see 2.6); can start empty and re-edit later.
 
@@ -154,27 +154,55 @@ start, `arr-apikeys` seeds keys, and `arr-bootstrap` runs its ONE automatic reco
 
 ### 2.5 DNS + certs
 
-- Point `*.8004228.xyz` → `192.168.60.3` in Cloudflare DNS (A record, proxy OFF/grey).
+- Point `*.8004228.xyz` → `192.168.100.9` in Cloudflare DNS (A record, proxy OFF/grey).
 - Traefik issues the wildcard cert via DNS-01 automatically (needs the CF token).
 - On LAN you reach `https://sonarr.8004228.xyz` directly; remotely via Tailscale.
 
-### 2.6 One-time UI steps (not automatable)
+### 2.6 One-time UI steps
 
-1. **qBittorrent**: `docker logs qbittorrent | grep -i password` → login →
-   Tools → Options → Web UI → API Key → Generate → put it in `secrets/arr.yaml`
-   as `QBIT_API_KEY`.
-2. **SABnzbd**: finish its wizard → copy its API key → `SAB_API_KEY`.
-3. **Prowlarr**: add your indexers (with credentials). Add FlareSolverr proxy
-   `http://localhost:8191` if needed.
-4. **Jellyfin**: run the setup wizard, create libraries pointing at
-   `/media/{tv,movies,anime,music}`, create an API key → `JELLYFIN_API_KEY`.
-5. **Seerr**: create admin user, generate API key → `SEERR_API_KEY`.
+These steps produce credentials/state that upstream apps do not currently expose as safe,
+complete declarative first-run config.
 
-After filling those, re-encrypt + push + `nixos-rebuild switch`, then run a reconcile:
+1. **qBittorrent**
+   - Open `https://torrent.8004228.xyz`.
+   - Temporary login password is in `docker logs qbittorrent | grep -i password`.
+   - Tools → Options → Web UI → API Key → Generate.
+   - Put the generated `qbt_...` value in `secrets/arr.yaml` as `QBIT_API_KEY`.
+2. **SABnzbd**
+   - Open `https://usenet.8004228.xyz`, finish the wizard.
+   - Copy Config → General → API Key into `SAB_API_KEY`.
+3. **Prowlarr**
+   - Open `https://prowlarr.8004228.xyz`.
+   - Add indexers and credentials manually.
+   - Optional Cloudflare proxy: add FlareSolverr at `http://localhost:8191` and tag only
+     Cloudflare-protected indexers.
+4. **Jellyfin**
+   - Open `https://jellyfin.8004228.xyz`, run the setup wizard.
+   - Add libraries:
+     - TV Shows → `/media/tv`
+     - Movies → `/media/movies`
+     - Anime → `/media/anime` with content type **Shows**
+     - Music → `/media/music` if you want a music library even while Lidarr is disabled
+   - Dashboard → API Keys → create one → `JELLYFIN_API_KEY`.
+5. **Seerr**
+   - Open `https://seerr.8004228.xyz`, create the admin user.
+   - Settings → General → API Key → `SEERR_API_KEY`.
+
+After filling those, re-encrypt + push + `nixos-rebuild switch`, then run the manual jobs:
 ```bash
-sudo systemctl start arr-reconcile.service
+sudo docker exec recyclarr recyclarr sync      # create TRaSH profiles first
+sudo systemctl start arr-reconcile.service     # wire download clients, roots, Prowlarr, Seerr
 journalctl -u arr-reconcile.service -f
 ```
+
+In Seerr, verify server/profile selections:
+
+- Sonarr → profile `WEB-2160p`, root `/data/media/tv`, default on.
+- Sonarr-Anime → profile `[Anime] Remux-1080p`, root `/data/media/anime`, default off.
+- Radarr → profile `[SQP] SQP-1 (2160p)`, root `/data/media/movies`, default on.
+
+The `WEB-2160p`/SQP profiles are “best available” profiles: Sonarr/Radarr can grab 2160p
+first, fall back to 1080p/720p when needed, and upgrade later when better releases appear.
 
 ### 2.7 Verify
 

@@ -77,7 +77,7 @@ sudo systemctl start arr-drift.service && git diff state-snapshots/
 # Manual backup to R2
 sudo systemctl start arr-backup.service
 
-# Update a container image: bump tag in modules/media/<svc>.nix, then rebuild
+# Update a container image: bump tag in modules/settings.nix, then rebuild
 ```
 
 ## Install

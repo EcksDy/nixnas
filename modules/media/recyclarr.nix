@@ -1,14 +1,16 @@
 # ================================================================
 # Recyclarr – TRaSH quality profiles / custom formats (config -> apps)
 #
-# Config is rendered declaratively from Nix into
-# /apps/config/recyclarr/recyclarr.yml at activation. API keys are
-# NOT baked in — they use !env_var, sourced from /run/secrets/bootstrap_env
-# passed to the container. Uses Recyclarr's built-in TRaSH `include`
-# templates so we don't hand-copy custom-format IDs.
+# Config is rendered declaratively from Nix and mounted read-only at
+# /config/recyclarr.yml. API keys are NOT baked in — they use !env_var,
+# sourced from /run/secrets/bootstrap_env passed to the container. Recyclarr v8
+# uses guide-backed quality profiles by TRaSH ID (not legacy include templates).
 #
 # Runs daily (CRON_SCHEDULE). Manual sync:
 #   docker exec recyclarr recyclarr sync
+#
+# Runs as media:media so /apps/config/recyclarr remains owned by the project
+# media user, not by Recyclarr's default 1000:1000 container user.
 # ================================================================
 { config, lib, pkgs, ... }:
 let

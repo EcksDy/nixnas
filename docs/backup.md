@@ -3,7 +3,7 @@
 App **state** (not media) is backed up nightly to Cloudflare R2. Media files are not
 backed up (14TB, single disk — accepted risk).
 
-> Status: planned.
+> Status: implemented.
 
 ## What is / isn't backed up
 
@@ -19,14 +19,12 @@ brings the stack back **empty**.
 
 ## How
 
-- `rclone` → Cloudflare R2 (S3-compatible). Credentials via sops
-  (`r2_access_key_id`, `r2_secret_access_key`).
+- `rclone` → Cloudflare R2 (S3-compatible). Credentials via sops `r2_env`
+  (`RCLONE_CONFIG_R2_*` + `R2_BUCKET`).
 - systemd timer, nightly (~04:30).
-- **SQLite-safe**: arr databases are SQLite; a live copy can corrupt. The job uses a
-  consistent snapshot (brief ordered container stop, or `sqlite3 .backup` per DB) before
-  pushing — never a naive copy of a live DB.
-- Optional at-rest encryption via `rclone crypt` (key in sops).
-- Retention: a few daily + weekly copies (rclone or R2 lifecycle rules).
+- **SQLite-aware**: copies app state to a temporary staging directory, then runs
+  `sqlite3 .backup` for discovered `*.db` files before archiving.
+- Retention: current job deletes archives older than 14 days.
 
 ## Manual run
 

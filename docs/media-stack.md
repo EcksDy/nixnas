@@ -100,8 +100,9 @@ journalctl -u arr-reconcile.service -f
 > unexpectedly.
 
 - **Recyclarr** (`modules/media/recyclarr.nix`) — TRaSH quality profiles / custom formats,
-  rendered declaratively from Nix using built-in TRaSH `include` templates; keys via
-  `!env_var`. Syncs daily.
+  rendered declaratively from Nix and mounted as `/config/recyclarr.yml`; keys via
+  `!env_var`. Uses Recyclarr v8 guide-backed quality profiles by TRaSH ID and syncs daily.
+  Manual sync: `sudo docker exec recyclarr recyclarr sync`.
 - **Drift reporter** (`modules/media/drift.nix` + `scripts/arr-drift.sh`) — daily poll →
   normalized, **secret-scrubbed** JSON in `state-snapshots/`. `git diff state-snapshots/`
   surfaces any drift in the *un-enforced* areas for manual reconcile.
@@ -113,15 +114,55 @@ connections via `config.ini` before first start (idempotent).
 `http://localhost:8191` and tag Cloudflare-protected indexers.
 
 **Seerr**: once you create the admin user in its UI and add `SEERR_API_KEY` to
-sops, the reconcile links Sonarr/Radarr automatically (best-effort; set quality
-profile/root in the UI if it reports a link failure).
+sops, the reconcile links Sonarr, Sonarr-Anime, and Radarr automatically on first
+creation. If Recyclarr profiles are created later, edit the Seerr server entries in the
+UI and select the desired profiles (`WEB-2160p`, `[Anime] Remux-1080p`, `[SQP] SQP-1
+(2160p)`).
 
-Not automated (one-time UI steps): Prowlarr indexer credentials, qBittorrent WebUI
-password, Jellyfin first-run wizard, Seerr admin user + API key.
+Not automated (one-time UI steps): Prowlarr indexer credentials, qBittorrent WebUI API
+key generation, SABnzbd first-run/API key, Jellyfin first-run wizard + libraries,
+Seerr admin user + API key.
 
 Volatile state that is *not* enforced is protected by the [backup](backup.md).
 
+## Setup gaps and automation opportunities
+
+Already automated:
+
+- Stable API keys for Sonarr, Sonarr-Anime, Radarr, Prowlarr, and Bazarr.
+- qBittorrent/SAB host binding and reverse-proxy safety settings via LSIO
+  `/custom-cont-init.d` scripts.
+- Sonarr/Sonarr-Anime/Radarr download clients, root folders, and Prowlarr app links via
+  `arr-reconcile.service`.
+- Seerr server registration after `SEERR_API_KEY` exists.
+- TRaSH/Recyclarr quality profiles and custom-format scoring via Recyclarr.
+- Daily drift snapshots for review.
+
+Could be automated next:
+
+- Update existing Seerr server entries, not just create missing entries, so profile/root
+  changes after Recyclarr sync are reconciled automatically.
+- Query Sonarr/Radarr profile IDs by name during Seerr wiring instead of assuming defaults
+  or requiring a UI refresh.
+- Generate/check qBittorrent API-key presence in docs/status output. qBittorrent exposes
+  API-key auth but upstream/LSIO do not document an env var to seed the key directly.
+- More Jellyfin bootstrap via API after the first admin/API key exists: libraries,
+  metadata providers, dashboard settings, and API keys.
+- SABnzbd server/category configuration if/when you want usenet provider details declared
+  in sops rather than entered in the UI.
+
+Currently blocked or intentionally manual:
+
+- Prowlarr indexer credentials: private tracker/API credentials are UI-entered and not
+  declared here by design.
+- Seerr first admin creation: setup is wizard/session-cookie bound before an API key exists.
+- qBittorrent API-key generation: qBit documents UI generation only; no known LSIO/native
+  environment variable to set it at first boot.
+- Lidarr: disabled until its qBittorrent download-client schema supports qBit API-key auth
+  like Sonarr/Radarr do.
+
 ## Reverse proxy
 
-Each service is published on its LAN port and routed by Traefik at
-`https://<service>.yourdomain.com`. See [networking-remote.md](networking-remote.md).
+Services are routed by Traefik at `https://<service>.yourdomain.com`. Raw downloader
+and indexer ports are not published on the NAS/LAN; Traefik reaches VPN-side services
+through gluetun's internal media-net IP. See [networking-remote.md](networking-remote.md).

@@ -61,7 +61,14 @@ git -C /etc/nixos diff state-snapshots/  # review UI drift vs declared config
 
 Fold intentional UI changes back into the declarative config, then reconcile.
 
-## Reconcile arr wiring (manual)
+## Recyclarr + arr wiring (manual)
+
+Recyclarr syncs TRaSH quality profiles daily. Force it immediately after profile/config
+changes:
+
+```bash
+sudo docker exec recyclarr recyclarr sync
+```
 
 The bootstrap reconcile runs **automatically once** on first creation, then only when you
 invoke it. It enforces config for download clients, root folders, and Prowlarr apps
@@ -75,6 +82,10 @@ journalctl -u arr-reconcile.service -f       # watch
 sudo rm /apps/config/.arr-bootstrapped
 sudo systemctl start arr-bootstrap.service
 ```
+
+If Seerr was linked before Recyclarr profiles existed, edit Seerr's Sonarr/Radarr server
+settings and choose the new profiles (`WEB-2160p`, `[Anime] Remux-1080p`, `[SQP] SQP-1
+(2160p)`).
 
 ## Backups
 

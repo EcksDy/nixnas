@@ -3,7 +3,7 @@
 Secrets are encrypted in-repo with [sops-nix](https://github.com/Mic92/sops-nix) + age.
 Ciphertext is committed; plaintext never touches git.
 
-> Status: planned. Scaffolding added during the media-stack build.
+> Status: implemented with `secrets/arr.yaml` + sops-nix.
 
 ## Public repo posture
 
@@ -19,7 +19,7 @@ decades-sensitive. Mitigations:
 - **Scope tightly:** the Cloudflare token is DNS-edit for one zone only; R2 creds are for
   one bucket. Rotate both periodically.
 - **Rotate** anything you'd care about before the quantum timeline (`sops secrets/arr.yaml`).
-- The rest (arr API keys, download-client creds, VPN key) are internal/low-value.
+- The rest (arr API keys, qBit/SAB/Jellyfin/Seerr integration keys, VPN key) are internal/low-value.
 
 The bigger day-to-day risk on a public repo is **accidentally committing plaintext**. A
 pre-commit hook guards against it — install once:
@@ -52,11 +52,11 @@ tokens (tskey-, cfat_, AWS keys, PRIVATE KEY blocks).
 
 ## Inventory
 
-- `protonvpn_wireguard_private_key`
-- `cloudflare_dns_api_token` (DNS-01 wildcard cert)
-- `tailscale_auth_key`
-- `r2_access_key_id`, `r2_secret_access_key` (backup)
-- arr API keys (pinned so enforce/backup/drift have stable creds)
+- `gluetun_env` — ProtonVPN WireGuard + port forwarding settings.
+- `cloudflare_env` — Cloudflare DNS-edit token for Traefik DNS-01 wildcard certs.
+- `tailscale_authkey` — reusable, non-ephemeral NAS auth key.
+- `r2_env` — Cloudflare R2 backup credentials and bucket.
+- `bootstrap_env` — pinned arr API keys plus qBittorrent, SABnzbd, Jellyfin, and Seerr integration keys.
 
 ## Day-to-day
 

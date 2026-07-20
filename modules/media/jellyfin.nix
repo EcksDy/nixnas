@@ -2,7 +2,8 @@
 # Jellyfin (Intel Quick Sync transcode) + Seerr (requests)
 #
 # Jellyfin uses the LinuxServer.io image with /dev/dri passthrough for QSV.
-# Runs as media:media via PUID/PGID. Seerr wires to Jellyfin + arr.
+# Jellyfin runs as media:media via PUID/PGID; Seerr runs as media:media via
+# --user so /app/config stays writable without host-side chown drift.
 # ================================================================
 { config, lib, pkgs, ... }:
 let
