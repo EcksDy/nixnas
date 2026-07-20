@@ -29,7 +29,6 @@ PROWLARR_URL="http://${NET_GW}:9696"
 SONARR_URL="http://172.20.0.10:8989"
 SONARR_ANIME_URL="http://172.20.0.11:8989"
 RADARR_URL="http://172.20.0.12:7878"
-LIDARR_URL="http://172.20.0.13:8686"
 SEERR_URL="http://172.20.0.5:5055"
 
 # shellcheck disable=SC1091
@@ -147,6 +146,7 @@ reconcile() {
 qbit_json() {
   local cat="$1" cat_field="tvCategory"
   [ "$cat" = "movies" ] && cat_field="movieCategory"
+  [ "$cat" = "music" ] && cat_field="musicCategory"
 
   jq -n --arg host "$NET_GW" --arg cat "$cat" --arg cat_field "$cat_field" \
         --arg apikey "${QBIT_API_KEY:-}" '
@@ -180,16 +180,15 @@ rootfolder_desired() { jq -n --arg p "$1" '[{path:$p}]'; }
 
 # ---- per-arr reconcile ----------------------------------------
 do_arr() {
-  local name="$1" url="$2" key="$3" cat="$4" root="$5"
-  wait_up "$name" "$url" "$key" || return 0
-  reconcile "$key" "$url" "downloadclient" "name" "$(clients_desired "$cat")"
-  reconcile "$key" "$url" "rootfolder"     "path" "$(rootfolder_desired "$root")"
+  local name="$1" url="$2" key="$3" cat="$4" root="$5" apiver="${6:-v3}"
+  wait_up "$name" "$url" "$key" "$apiver" || return 0
+  reconcile "$key" "$url" "downloadclient" "name" "$(clients_desired "$cat")" "$apiver"
+  reconcile "$key" "$url" "rootfolder"     "path" "$(rootfolder_desired "$root")" "$apiver"
 }
 
 do_arr "sonarr"       "$SONARR_URL"       "${SONARR_API_KEY:-}"       "tv"     "/data/media/tv"
 do_arr "sonarr-anime" "$SONARR_ANIME_URL" "${SONARR_ANIME_API_KEY:-}" "anime"  "/data/media/anime"
 do_arr "radarr"       "$RADARR_URL"       "${RADARR_API_KEY:-}"       "movies" "/data/media/movies"
-do_arr "lidarr"       "$LIDARR_URL"       "${LIDARR_API_KEY:-}"       "music"  "/data/media/music"
 
 # ---- Prowlarr -> applications (reconcile, v1) ------------------
 prowlarr_apps_desired() {
@@ -197,17 +196,14 @@ prowlarr_apps_desired() {
     --arg purl "$PROWLARR_URL" \
     --arg surl "$SONARR_URL"       --arg skey "${SONARR_API_KEY:-}" \
     --arg aurl "$SONARR_ANIME_URL" --arg akey "${SONARR_ANIME_API_KEY:-}" \
-    --arg rurl "$RADARR_URL"       --arg rkey "${RADARR_API_KEY:-}" \
-    --arg lurl "$LIDARR_URL"       --arg lkey "${LIDARR_API_KEY:-}" '
+    --arg rurl "$RADARR_URL"       --arg rkey "${RADARR_API_KEY:-}" '
     [
       {name:"Sonarr",       implementation:"Sonarr", configContract:"SonarrSettings", syncLevel:"fullSync",
        fields:[{name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$surl},{name:"apiKey",value:$skey}]},
       {name:"Sonarr-Anime", implementation:"Sonarr", configContract:"SonarrSettings", syncLevel:"fullSync",
        fields:[{name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$aurl},{name:"apiKey",value:$akey}]},
       {name:"Radarr",       implementation:"Radarr", configContract:"RadarrSettings", syncLevel:"fullSync",
-       fields:[{name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$rurl},{name:"apiKey",value:$rkey}]},
-      {name:"Lidarr",       implementation:"Lidarr", configContract:"LidarrSettings", syncLevel:"fullSync",
-       fields:[{name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$lurl},{name:"apiKey",value:$lkey}]}
+       fields:[{name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$rurl},{name:"apiKey",value:$rkey}]}
     ]'
 }
 

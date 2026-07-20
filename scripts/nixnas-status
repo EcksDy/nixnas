@@ -49,7 +49,7 @@ SERVICES=("sshd" "docker" "smartd" "ugos-protect" "fail2ban" "fan-control" "tail
 SVC_SHORT=("sshd" "docker" "smartd" "ugos"         "f2ban"   "fans"        "tscale"     "traefik")
 
 # Media stack containers to show (name:label)
-CONTAINERS=("gluetun" "qbittorrent" "sabnzbd" "prowlarr" "sonarr" "sonarr-anime" "radarr" "lidarr" "bazarr" "jellyfin" "seerr")
+CONTAINERS=("gluetun" "qbittorrent" "sabnzbd" "prowlarr" "sonarr" "sonarr-anime" "radarr" "bazarr" "jellyfin" "seerr")
 
 NIXOS_CONFIG="/etc/nixos"
 

@@ -62,7 +62,6 @@ snap_arr() {
 snap_arr "sonarr"       "http://172.20.0.10:8989" "${SONARR_API_KEY:-}"
 snap_arr "sonarr-anime" "http://172.20.0.11:8989" "${SONARR_ANIME_API_KEY:-}"
 snap_arr "radarr"       "http://172.20.0.12:7878" "${RADARR_API_KEY:-}"
-snap_arr "lidarr"       "http://172.20.0.13:8686" "${LIDARR_API_KEY:-}"
 
 # prowlarr (v1): indexers + apps
 if [ -n "${PROWLARR_API_KEY:-}" ]; then

@@ -22,7 +22,6 @@ let
     sonarr       = { app = "SONARR";   var = "SONARR_API_KEY"; };
     sonarr-anime = { app = "SONARR";   var = "SONARR_ANIME_API_KEY"; };
     radarr       = { app = "RADARR";   var = "RADARR_API_KEY"; };
-    lidarr       = { app = "LIDARR";   var = "LIDARR_API_KEY"; };
     prowlarr     = { app = "PROWLARR"; var = "PROWLARR_API_KEY"; };
   };
 

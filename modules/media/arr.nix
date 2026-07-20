@@ -1,5 +1,9 @@
 # ================================================================
-# *arr apps – Sonarr, Sonarr-anime, Radarr, Lidarr, Prowlarr, Bazarr
+# *arr apps – Sonarr, Sonarr-anime, Radarr, Prowlarr, Bazarr
+#
+# Lidarr is intentionally disabled for now: current Lidarr 3.1 exposes only
+# username/password qBittorrent settings and is missing qBittorrent API-key
+# auth support in its download-client schema.
 #
 # Prowlarr runs via gluetun (indexer traffic through VPN); its UI is
 # published on gluetun:9696. The rest run on media-net with static IPs
@@ -29,7 +33,6 @@ in
   virtualisation.oci-containers.containers = {
     sonarr = arr { name = "sonarr"; ip = "172.20.0.10"; port = 8989; };
     radarr = arr { name = "radarr"; ip = "172.20.0.12"; port = 7878; };
-    lidarr = arr { name = "lidarr"; ip = "172.20.0.13"; port = 8686; };
     bazarr = arr { name = "bazarr"; ip = "172.20.0.15"; port = 6767; apiKeyEnv = false; };
 
     # Second Sonarr for anime. Uses lscr sonarr image with its own config dir.

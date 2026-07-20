@@ -16,7 +16,6 @@ hand-written module per service under `modules/media/`.
 | Sonarr | TV management | no | LAN + Tailscale |
 | Sonarr-anime | Anime TV (absolute numbering, anime formats) | no | LAN + Tailscale |
 | Radarr | Movies (anime movies via profile) | no | LAN + Tailscale |
-| Lidarr | Music | no | LAN + Tailscale |
 | Prowlarr | Indexer aggregator + app-sync | **yes** | LAN + Tailscale |
 | Bazarr | Subtitle downloading (no Whisper) | no | LAN + Tailscale |
 | qBittorrent | Torrents | **yes** | LAN + Tailscale |
@@ -70,11 +69,15 @@ Config is the source of truth. For the resources we own, the bootstrap does a fu
 reconcile — create missing, update changed, and **delete orphans** (present but not in
 config):
 
-- **Download clients** — qBittorrent + SABnzbd with `tv/movies/music/anime` categories,
-  on all four arr instances.
-- **Root folders** — `/data/media/{tv,anime,movies,music}`.
-- **Prowlarr → applications** — registers the four arr apps so Prowlarr auto-pushes
+- **Download clients** — qBittorrent + SABnzbd with `tv/movies/anime` categories,
+  on Sonarr/Sonarr-anime/Radarr.
+- **Root folders** — `/data/media/{tv,anime,movies}`.
+- **Prowlarr → applications** — registers Sonarr/Sonarr-anime/Radarr so Prowlarr auto-pushes
   indexers.
+
+**Lidarr disabled for now.** Current Lidarr 3.1 does not expose qBittorrent API-key auth
+in its download-client schema; it only exposes qBit username/password fields. Since the
+rest of the stack uses qBittorrent API-key auth, Lidarr is intentionally not declared.
 
 Runs **automatically once, on first creation** (a fresh install has nothing to clobber),
 gated by a stamp file `/apps/config/.arr-bootstrapped`. After that it is **manual only** —
