@@ -26,16 +26,16 @@ let
         api_key: !env_var SONARR_API_KEY
         quality_definition:
           type: series
-        include:
-          - template: sonarr-quality-definition-series
-          - template: sonarr-v4-quality-profile-web-2160p
-          - template: sonarr-v4-custom-formats-web-2160p
+        # Recyclarr v8 removed the official include templates. Use guide-backed
+        # quality profiles by TRaSH ID instead. This still syncs guide qualities,
+        # score set, custom formats, and CF scores.
         # One "best available" profile: prefer 2160p, fall back to 1080p,
         # then 720p for older/rare shows. TRaSH's stock WEB-2160p profile is
         # 2160p-only, so we override its allowed qualities while keeping the
         # 2160p custom-format scoring.
         quality_profiles:
-          - name: WEB-2160p
+          - trash_id: d1498e7d189fbe6c7110ceaabb7473e6 # WEB-2160p
+            name: WEB-2160p
             reset_unmatched_scores:
               enabled: true
             upgrade:
@@ -65,10 +65,9 @@ let
         api_key: !env_var SONARR_ANIME_API_KEY
         quality_definition:
           type: anime
-        include:
-          - template: sonarr-quality-definition-anime
-          - template: sonarr-v4-quality-profile-anime
-          - template: sonarr-v4-custom-formats-anime
+        quality_profiles:
+          - trash_id: 20e0fc959f1f1704bed501f23bdae76f # [Anime] Remux-1080p
+            name: "[Anime] Remux-1080p"
 
     radarr:
       main:
@@ -76,12 +75,11 @@ let
         api_key: !env_var RADARR_API_KEY
         quality_definition:
           type: movie
-        include:
-          - template: radarr-quality-definition-movie
-          # SQP-1 (2160p) is TRaSH's streaming-optimized 4K profile that
-          # already includes 2160p first, then 1080p and 720p fallback.
-          - template: radarr-quality-profile-sqp-1-2160p-default
-          - template: radarr-custom-formats-sqp-1-2160p
+        # SQP-1 (2160p) is TRaSH's streaming-optimized 4K profile that
+        # already includes 2160p first, then 1080p and 720p fallback.
+        quality_profiles:
+          - trash_id: 5128baeb2b081b72126bc8482b2a86a0 # [SQP] SQP-1 (2160p)
+            name: "[SQP] SQP-1 (2160p)"
   '';
 
   ymlFile = pkgs.writeText "recyclarr.yml" recyclarrYml;
