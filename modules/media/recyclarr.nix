@@ -16,12 +16,12 @@ let
   cfg = config.nixnas;
   hasSecret = builtins.pathExists ../../secrets/arr.yaml;
 
-  # Declarative Recyclarr config. `include` pulls TRaSH templates shipped
-  # with recyclarr (recyclarr list templates). !env_var keeps keys out of the file.
+  # Declarative Recyclarr config. !env_var keeps keys out of the file.
+  # Instance names must be globally unique across service types in Recyclarr v8.
   recyclarrYml = ''
     # Managed by NixOS (modules/media/recyclarr.nix). Do not edit in place.
     sonarr:
-      main:
+      sonarr-main:
         base_url: http://172.20.0.10:8989
         api_key: !env_var SONARR_API_KEY
         quality_definition:
@@ -60,7 +60,7 @@ let
                   - WEBRip-720p
               - name: Bluray-720p
 
-      anime:
+      sonarr-anime:
         base_url: http://172.20.0.11:8989
         api_key: !env_var SONARR_ANIME_API_KEY
         quality_definition:
@@ -70,7 +70,7 @@ let
             name: "[Anime] Remux-1080p"
 
     radarr:
-      main:
+      radarr-main:
         base_url: http://172.20.0.12:7878
         api_key: !env_var RADARR_API_KEY
         quality_definition:
