@@ -51,6 +51,9 @@
     extraGroups = [ "wheel" "networkmanager" "docker" "media" ];
     initialPassword = "changeme";
     # ⚠️ Change after first login: passwd
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINRnyrWuIqd1EJ9xGQjura9BlNggYCB2iSYXioTPQwBG pi@nixnas-20260720"
+    ];
   };
 
   # Dedicated non-login media service user/group (uid/gid 13000).
@@ -76,6 +79,9 @@
     settings = {
       PermitRootLogin = "no";
       PasswordAuthentication = true;
+      KbdInteractiveAuthentication = true;
+      ClientAliveInterval = 60;
+      ClientAliveCountMax = 5;
     };
   };
 
@@ -108,8 +114,12 @@
   # ============================================================
   services.fail2ban = {
     enable = true;
-    maxretry = 5;
-    bantime = "1h";
+    ignoreIP = [
+      "127.0.0.1/8"
+      "192.168.100.0/24"
+    ];
+    maxretry = 10;
+    bantime = "10m";
     bantime-increment = {
       enable = true;
       maxtime = "48h";
@@ -119,7 +129,9 @@
         enabled = true;
         port = "ssh";
         filter = "sshd";
-        maxretry = 5;
+        maxretry = 10;
+        findtime = "10m";
+        bantime = "10m";
       };
     };
   };
