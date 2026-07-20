@@ -47,6 +47,8 @@ lib.mkIf hasSecret {
       "docker-radarr.service"
       "docker-lidarr.service"
       "docker-prowlarr.service"
+      "docker-qbittorrent.service"
+      "docker-sabnzbd.service"
       "docker-gluetun.service"
       "arr-apikeys.service"
     ];
