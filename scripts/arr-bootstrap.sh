@@ -30,12 +30,22 @@ SONARR_URL="http://172.20.0.10:8989"
 SONARR_ANIME_URL="http://172.20.0.11:8989"
 RADARR_URL="http://172.20.0.12:7878"
 LIDARR_URL="http://172.20.0.13:8686"
-JELLYSEERR_URL="http://172.20.0.5:5055"
+SEERR_URL="http://172.20.0.5:5055"
 
 # shellcheck disable=SC1091
 . /run/secrets/bootstrap_env
 
-log() { printf '[bootstrap] %s\n' "$*"; }
+log() { printf '%s\n' "$*"; }
+
+summarize_error() {
+  # Keep curl/servarr validation output readable in journald.
+  local input
+  input="$(cat)"
+  if printf '%s' "$input" | jq -er 'if type == "array" then map((.propertyName // .field // "error") + ": " + (.errorMessage // .message // tostring)) | join("; ") elif type == "object" then (.message // .errorMessage // tostring) else tostring end' 2>/dev/null; then
+    return 0
+  fi
+  printf '%s' "$input" | sed ':a;N;$!ba;s/\n/ /g'
+}
 
 # ---------------------------------------------------------------
 # Secure curl: API key passed via --variable + --expand-header, so
@@ -46,7 +56,7 @@ log() { printf '[bootstrap] %s\n' "$*"; }
 api() {
   local key="$1" method="$2" url="$3" body="${4:-}"
   local tmp="" args=()
-  args=(--silent --show-error --fail
+  args=(--silent --show-error --fail-with-body
         --variable "apiKey=$key"
         --expand-header "X-Api-Key: {{apiKey}}"
         -X "$method")
@@ -103,15 +113,20 @@ reconcile() {
     existing="$(echo "$current" | jq -c --arg n "$wname" ".[] | select(.${field}==\$n)" | head -n1)"
     if [ -z "$existing" ]; then
       log "  create ${ep}: ${wname}"
-      api "$key" POST "$url" "$want" >/dev/null || log "  WARN create ${wname} failed"
+      local out
+      if ! out="$(api "$key" POST "$url" "$want" 2>&1)"; then
+        log "  WARN create ${ep} ${wname} failed: $(printf '%s' "$out" | summarize_error)"
+      fi
     else
       eid="$(echo "$existing" | jq -r '.id')"
       # merge id into desired and PUT (update)
       local merged
       merged="$(echo "$want" | jq -c --argjson id "$eid" '. + {id:$id}')"
       log "  update ${ep}: ${wname}"
-      api "$key" PUT "${url}/${eid}" "$merged" >/dev/null 2>&1 \
-        || log "  (update ${wname} skipped/failed — often OK if unchanged)"
+      local out
+      if ! out="$(api "$key" PUT "${url}/${eid}" "$merged" 2>&1)"; then
+        log "  WARN update ${ep} ${wname} failed: $(printf '%s' "$out" | summarize_error)"
+      fi
     fi
   done
 }
@@ -188,50 +203,51 @@ if wait_up "prowlarr" "$PROWLARR_URL" "${PROWLARR_API_KEY:-}" "v1"; then
   log "note: indexers are NOT managed here — add them in the Prowlarr UI (with creds)."
 fi
 
-# ---- Jellyseerr (best-effort service wiring) ------------------
-# Jellyseerr's admin/user creation is UI-wizard-bound (can't be created
+# ---- Seerr (best-effort service wiring) -----------------------
+# Seerr's admin/user creation is UI-wizard-bound (can't be created
 # headlessly without the setup cookie). But once you've created the admin
 # user in the UI and generated an API key (Settings -> General -> API Key)
-# and put it in bootstrap_env as JELLYSEERR_API_KEY, we can reconcile the
+# and put it in bootstrap_env as SEERR_API_KEY, we can reconcile the
 # Sonarr/Radarr service entries via the API.
-jellyseerr_wire() {
-  [ -n "${JELLYSEERR_API_KEY:-}" ] || {
-    log "jellyseerr: no JELLYSEERR_API_KEY set — finish linking in the UI (one-time)"
+seerr_wire() {
+  local seerr_key="${SEERR_API_KEY:-}"
+  [ -n "$seerr_key" ] || {
+    log "seerr: no SEERR_API_KEY set — finish linking in the UI (one-time)"
     return 0
   }
-  local base="${JELLYSEERR_URL}/api/v1"
+  local base="${SEERR_URL}/api/v1"
   # Sonarr
-  if ! curl -fsS -H "X-Api-Key: ${JELLYSEERR_API_KEY}" "${base}/settings/sonarr" 2>/dev/null \
+  if ! curl -fsS -H "X-Api-Key: $seerr_key" "${base}/settings/sonarr" 2>/dev/null \
        | jq -e '.[]|select(.name=="Sonarr")' >/dev/null 2>&1; then
-    if curl -fsS -X POST -H "X-Api-Key: ${JELLYSEERR_API_KEY}" -H 'Content-Type: application/json' \
+    if curl -fsS -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
       "${base}/settings/sonarr" -d "$(jq -n --arg key "${SONARR_API_KEY:-}" '
         {name:"Sonarr",hostname:"172.20.0.10",port:8989,apiKey:$key,useSsl:false,
          baseUrl:"",activeProfileId:1,activeProfileName:"Any",
          activeDirectory:"/data/media/tv",is4k:false,isDefault:true,
          enableSeasonFolders:true}')" >/dev/null 2>&1; then
-      log "jellyseerr: Sonarr linked"
+      log "seerr: Sonarr linked"
     else
-      log "jellyseerr: Sonarr link failed (set profile/root in UI)"
+      log "seerr: Sonarr link failed (set profile/root in UI)"
     fi
   fi
   # Radarr
-  if ! curl -fsS -H "X-Api-Key: ${JELLYSEERR_API_KEY}" "${base}/settings/radarr" 2>/dev/null \
+  if ! curl -fsS -H "X-Api-Key: $seerr_key" "${base}/settings/radarr" 2>/dev/null \
        | jq -e '.[]|select(.name=="Radarr")' >/dev/null 2>&1; then
-    if curl -fsS -X POST -H "X-Api-Key: ${JELLYSEERR_API_KEY}" -H 'Content-Type: application/json' \
+    if curl -fsS -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
       "${base}/settings/radarr" -d "$(jq -n --arg key "${RADARR_API_KEY:-}" '
         {name:"Radarr",hostname:"172.20.0.12",port:7878,apiKey:$key,useSsl:false,
          baseUrl:"",activeProfileId:1,activeProfileName:"Any",
          activeDirectory:"/data/media/movies",is4k:false,isDefault:true}')" >/dev/null 2>&1; then
-      log "jellyseerr: Radarr linked"
+      log "seerr: Radarr linked"
     else
-      log "jellyseerr: Radarr link failed (set profile/root in UI)"
+      log "seerr: Radarr link failed (set profile/root in UI)"
     fi
   fi
 }
 
-if curl -fsS "${JELLYSEERR_URL}/api/v1/status" >/dev/null 2>&1; then
-  log "jellyseerr up"
-  jellyseerr_wire
+if curl -fsS "${SEERR_URL}/api/v1/status" >/dev/null 2>&1; then
+  log "seerr up"
+  seerr_wire
 fi
 
 log "bootstrap reconcile complete"
