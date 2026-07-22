@@ -201,6 +201,10 @@ The reconcile also sets qBittorrent default/category paths:
 - Incomplete/temporary path enabled → `/data/torrents/incomplete`
 - Categories: `tv`, `anime`, `movies` → `/data/torrents/{tv,anime,movies}`
 - qBit “Use category paths in Manual Mode” enabled
+- qBit queueing enabled:
+  - max active downloads: 10
+  - max active uploads: 5
+  - max active torrents: 10
 - qBit “Do not count slow torrents in these limits” enabled with thresholds:
   - download below 100 KiB/s
   - upload below 30 KiB/s

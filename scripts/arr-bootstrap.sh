@@ -111,10 +111,14 @@ qbit_set_prefs() {
     dont_count_slow_torrents:true,
     slow_torrent_dl_rate_threshold:100,
     slow_torrent_ul_rate_threshold:30,
-    slow_torrent_inactive_timer:60
+    slow_torrent_inactive_timer:60,
+    queueing_enabled:true,
+    max_active_downloads:10,
+    max_active_uploads:5,
+    max_active_torrents:10
   }')"
   qbit_api POST app/setPreferences --data-urlencode "json=${prefs}" >/dev/null
-  log "qbit: default save path /data/torrents; category paths/manual mode and slow-torrent limits configured"
+  log "qbit: default save path /data/torrents; category paths/manual mode, queueing, and slow-torrent limits configured"
 }
 
 qbit_ensure_category() {
