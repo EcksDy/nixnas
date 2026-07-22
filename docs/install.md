@@ -209,6 +209,10 @@ The reconcile also sets qBittorrent default/category paths:
   - download below 100 KiB/s
   - upload below 30 KiB/s
   - inactive for 60 seconds
+- qBit speed schedule enabled:
+  - normal download limit: 5 MiB/s
+  - alternative mode from 01:00 to 09:00 every day: unlimited download
+  - upload remains unlimited in both modes
 
 In Seerr, verify server/profile selections:
 
