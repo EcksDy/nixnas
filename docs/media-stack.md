@@ -114,10 +114,9 @@ connections via `config.ini` before first start (idempotent).
 `http://localhost:8191` and tag Cloudflare-protected indexers.
 
 **Seerr**: once you create the admin user in its UI and add `SEERR_API_KEY` to
-sops, the reconcile links Sonarr, Sonarr-Anime, and Radarr automatically on first
-creation. If Recyclarr profiles are created later, edit the Seerr server entries in the
-UI and select the desired profiles (`WEB-2160p`, `[Anime] Remux-1080p`, `[SQP] SQP-1
-(2160p)`).
+sops, the reconcile links/updates Sonarr, Sonarr-Anime, and Radarr automatically and
+selects the Recyclarr quality profiles when they exist (`WEB-2160p`, `[Anime]
+Remux-1080p`, `[SQP] SQP-1 (2160p)`).
 
 Not automated (one-time UI steps): Prowlarr indexer credentials, qBittorrent WebUI API
 key generation, SABnzbd first-run/API key, Jellyfin first-run wizard + libraries,
@@ -132,6 +131,7 @@ Already automated:
 - Stable API keys for Sonarr, Sonarr-Anime, Radarr, Prowlarr, and Bazarr.
 - qBittorrent/SAB host binding and reverse-proxy safety settings via LSIO
   `/custom-cont-init.d` scripts.
+- qBittorrent default save/temp paths and `tv`/`anime`/`movies` category save paths.
 - Sonarr/Sonarr-Anime/Radarr download clients, root folders, and Prowlarr app links via
   `arr-reconcile.service`.
 - Seerr server registration after `SEERR_API_KEY` exists.
@@ -140,10 +140,6 @@ Already automated:
 
 Could be automated next:
 
-- Update existing Seerr server entries, not just create missing entries, so profile/root
-  changes after Recyclarr sync are reconciled automatically.
-- Query Sonarr/Radarr profile IDs by name during Seerr wiring instead of assuming defaults
-  or requiring a UI refresh.
 - Generate/check qBittorrent API-key presence in docs/status output. qBittorrent exposes
   API-key auth but upstream/LSIO do not document an env var to seed the key directly.
 - More Jellyfin bootstrap via API after the first admin/API key exists: libraries,

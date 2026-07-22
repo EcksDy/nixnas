@@ -195,6 +195,17 @@ sudo systemctl start arr-reconcile.service     # wire download clients, roots, P
 journalctl -u arr-reconcile.service -f
 ```
 
+The reconcile also sets qBittorrent default/category paths:
+
+- Default save path → `/data/torrents`
+- Incomplete/temporary path enabled → `/data/torrents/incomplete`
+- Categories: `tv`, `anime`, `movies` → `/data/torrents/{tv,anime,movies}`
+- qBit “Use category paths in Manual Mode” enabled
+- qBit “Do not count slow torrents in these limits” enabled with thresholds:
+  - download below 100 KiB/s
+  - upload below 30 KiB/s
+  - inactive for 60 seconds
+
 In Seerr, verify server/profile selections:
 
 - Sonarr → profile `WEB-2160p`, root `/data/media/tv`, default on.

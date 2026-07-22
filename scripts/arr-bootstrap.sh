@@ -81,6 +81,66 @@ wait_up() {
   log "WARN: ${name} not up after 180s; skipping"; return 1
 }
 
+qbit_api() {
+  local method="$1" path="$2"; shift 2
+  curl --silent --show-error --fail-with-body \
+    --variable "apiKey=${QBIT_API_KEY:-}" \
+    --expand-header "Authorization: Bearer {{apiKey}}" \
+    -X "$method" "$@" "http://${NET_GW}:8081/api/v2/${path}"
+}
+
+qbit_wait_up() {
+  local _i
+  [ -n "${QBIT_API_KEY:-}" ] || { log "qbit: no QBIT_API_KEY set — skipping qBit path/category setup"; return 1; }
+  for _i in $(seq 1 60); do
+    if qbit_api GET app/version >/dev/null 2>&1; then
+      log "qbit up"; return 0
+    fi
+    sleep 2
+  done
+  log "WARN: qbit not up after 120s; skipping qBit path/category setup"; return 1
+}
+
+qbit_set_prefs() {
+  local prefs
+  prefs="$(jq -nc '{
+    save_path:"/data/torrents/",
+    temp_path:"/data/torrents/incomplete/",
+    temp_path_enabled:true,
+    use_category_paths_in_manual_mode:true,
+    dont_count_slow_torrents:true,
+    slow_torrent_dl_rate_threshold:100,
+    slow_torrent_ul_rate_threshold:30,
+    slow_torrent_inactive_timer:60
+  }')"
+  qbit_api POST app/setPreferences --data-urlencode "json=${prefs}" >/dev/null
+  log "qbit: default save path /data/torrents; category paths/manual mode and slow-torrent limits configured"
+}
+
+qbit_ensure_category() {
+  local name="$1" path="$2" current
+  current="$(qbit_api GET torrents/categories 2>/dev/null || echo '{}')"
+  if echo "$current" | jq -e --arg n "$name" 'has($n)' >/dev/null; then
+    qbit_api POST torrents/editCategory \
+      --data-urlencode "category=${name}" \
+      --data-urlencode "savePath=${path}" >/dev/null
+    log "qbit: update category ${name} -> ${path}"
+  else
+    qbit_api POST torrents/createCategory \
+      --data-urlencode "category=${name}" \
+      --data-urlencode "savePath=${path}" >/dev/null
+    log "qbit: create category ${name} -> ${path}"
+  fi
+}
+
+qbit_configure() {
+  qbit_wait_up || return 0
+  qbit_set_prefs || { log "WARN qbit: failed to set default paths"; return 0; }
+  qbit_ensure_category tv     /data/torrents/tv     || log "WARN qbit: failed to reconcile tv category"
+  qbit_ensure_category anime  /data/torrents/anime  || log "WARN qbit: failed to reconcile anime category"
+  qbit_ensure_category movies /data/torrents/movies || log "WARN qbit: failed to reconcile movies category"
+}
+
 # ---------------------------------------------------------------
 # Reconcile a v3 resource collection by a match key.
 #   reconcile <key> <base_url> <endpoint> <match_field> <desired_json_array> <apiver>
@@ -186,6 +246,8 @@ do_arr() {
   reconcile "$key" "$url" "rootfolder"     "path" "$(rootfolder_desired "$root")" "$apiver"
 }
 
+qbit_configure
+
 do_arr "sonarr"       "$SONARR_URL"       "${SONARR_API_KEY:-}"       "tv"     "/data/media/tv"
 do_arr "sonarr-anime" "$SONARR_ANIME_URL" "${SONARR_ANIME_API_KEY:-}" "anime"  "/data/media/anime"
 do_arr "radarr"       "$RADARR_URL"       "${RADARR_API_KEY:-}"       "movies" "/data/media/movies"
@@ -219,59 +281,69 @@ fi
 # user in the UI and generated an API key (Settings -> General -> API Key)
 # and put it in bootstrap_env as SEERR_API_KEY, we can reconcile the
 # Sonarr/Radarr service entries via the API.
+servarr_profile_id() {
+  local key="$1" url="$2" profile="$3" profiles id
+  profiles="$(api "$key" GET "${url}/api/v3/qualityprofile" 2>/dev/null || echo '[]')"
+  id="$(echo "$profiles" | jq -r --arg p "$profile" '.[] | select(.name==$p) | .id' | head -n1)"
+  [ -n "$id" ] && [ "$id" != "null" ] && printf '%s' "$id" || printf '1'
+}
+
+seerr_upsert_server() {
+  local kind="$1" name="$2" host="$3" key="$4" profile_id="$5" profile_name="$6" dir="$7" is_default="$8"
+  local seerr_key="${SEERR_API_KEY:-}" base="${SEERR_URL}/api/v1" endpoint existing id payload out
+  [ "$kind" = "sonarr" ] && endpoint="settings/sonarr" || endpoint="settings/radarr"
+  existing="$(curl -fsS -H "X-Api-Key: $seerr_key" "${base}/${endpoint}" 2>/dev/null || echo '[]')"
+  existing="$(echo "$existing" | jq -c --arg n "$name" '.[] | select(.name==$n)' | head -n1)"
+
+  if [ "$kind" = "sonarr" ]; then
+    payload="$(jq -nc --arg name "$name" --arg host "$host" --arg key "$key" \
+      --argjson pid "$profile_id" --arg pname "$profile_name" --arg dir "$dir" --argjson def "$is_default" \
+      '{name:$name,hostname:$host,port:8989,apiKey:$key,useSsl:false,baseUrl:"",
+        activeProfileId:$pid,activeProfileName:$pname,activeDirectory:$dir,is4k:false,
+        isDefault:$def,enableSeasonFolders:true}')"
+  else
+    payload="$(jq -nc --arg name "$name" --arg host "$host" --arg key "$key" \
+      --argjson pid "$profile_id" --arg pname "$profile_name" --arg dir "$dir" --argjson def "$is_default" \
+      '{name:$name,hostname:$host,port:7878,apiKey:$key,useSsl:false,baseUrl:"",
+        activeProfileId:$pid,activeProfileName:$pname,activeDirectory:$dir,
+        minimumAvailability:"released",is4k:false,isDefault:$def}')"
+  fi
+
+  if [ -n "$existing" ]; then
+    id="$(echo "$existing" | jq -r '.id')"
+    payload="$(echo "$payload" | jq -c --argjson id "$id" '. + {id:$id}')"
+    if out="$(curl -fsS --fail-with-body -X PUT -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
+      "${base}/${endpoint}/${id}" -d "$payload" 2>&1)"; then
+      log "seerr: ${name} updated (${profile_name})"
+    else
+      log "seerr: ${name} update failed: $(printf '%s' "$out" | summarize_error)"
+    fi
+  else
+    if out="$(curl -fsS --fail-with-body -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
+      "${base}/${endpoint}" -d "$payload" 2>&1)"; then
+      log "seerr: ${name} linked (${profile_name})"
+    else
+      log "seerr: ${name} link failed: $(printf '%s' "$out" | summarize_error)"
+    fi
+  fi
+}
+
 seerr_wire() {
   local seerr_key="${SEERR_API_KEY:-}"
   [ -n "$seerr_key" ] || {
     log "seerr: no SEERR_API_KEY set — finish linking in the UI (one-time)"
     return 0
   }
-  local base="${SEERR_URL}/api/v1"
-  # Sonarr
-  if ! curl -fsS -H "X-Api-Key: $seerr_key" "${base}/settings/sonarr" 2>/dev/null \
-       | jq -e '.[]|select(.name=="Sonarr")' >/dev/null 2>&1; then
-    local out
-    if out="$(curl -fsS --fail-with-body -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
-      "${base}/settings/sonarr" -d "$(jq -n --arg key "${SONARR_API_KEY:-}" '
-        {name:"Sonarr",hostname:"172.20.0.10",port:8989,apiKey:$key,useSsl:false,
-         baseUrl:"",activeProfileId:1,activeProfileName:"WEB-2160p",
-         activeDirectory:"/data/media/tv",is4k:false,isDefault:true,
-         enableSeasonFolders:true}')" 2>&1)"; then
-      log "seerr: Sonarr linked"
-    else
-      log "seerr: Sonarr link failed: $(printf '%s' "$out" | summarize_error)"
-    fi
-  fi
-  # Sonarr anime instance. Keep it non-default; users can select it for anime
-  # requests. Profile id 1 is the built-in Any profile on a fresh Sonarr; once
-  # Recyclarr creates the anime profile, change this in the UI if desired.
-  if ! curl -fsS -H "X-Api-Key: $seerr_key" "${base}/settings/sonarr" 2>/dev/null \
-       | jq -e '.[]|select(.name=="Sonarr-Anime")' >/dev/null 2>&1; then
-    local out
-    if out="$(curl -fsS --fail-with-body -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
-      "${base}/settings/sonarr" -d "$(jq -n --arg key "${SONARR_ANIME_API_KEY:-}" '
-        {name:"Sonarr-Anime",hostname:"172.20.0.11",port:8989,apiKey:$key,useSsl:false,
-         baseUrl:"",activeProfileId:1,activeProfileName:"Any",
-         activeDirectory:"/data/media/anime",is4k:false,isDefault:false,
-         enableSeasonFolders:true}')" 2>&1)"; then
-      log "seerr: Sonarr-Anime linked"
-    else
-      log "seerr: Sonarr-Anime link failed: $(printf '%s' "$out" | summarize_error)"
-    fi
-  fi
-  # Radarr
-  if ! curl -fsS -H "X-Api-Key: $seerr_key" "${base}/settings/radarr" 2>/dev/null \
-       | jq -e '.[]|select(.name=="Radarr")' >/dev/null 2>&1; then
-    local out
-    if out="$(curl -fsS --fail-with-body -X POST -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
-      "${base}/settings/radarr" -d "$(jq -n --arg key "${RADARR_API_KEY:-}" '
-        {name:"Radarr",hostname:"172.20.0.12",port:7878,apiKey:$key,useSsl:false,
-         baseUrl:"",activeProfileId:1,activeProfileName:"SQP-1 (2160p)",
-         activeDirectory:"/data/media/movies",minimumAvailability:"released",is4k:false,isDefault:true}')" 2>&1)"; then
-      log "seerr: Radarr linked"
-    else
-      log "seerr: Radarr link failed: $(printf '%s' "$out" | summarize_error)"
-    fi
-  fi
+
+  seerr_upsert_server sonarr "Sonarr" "172.20.0.10" "${SONARR_API_KEY:-}" \
+    "$(servarr_profile_id "${SONARR_API_KEY:-}" "$SONARR_URL" "WEB-2160p")" \
+    "WEB-2160p" "/data/media/tv" true
+  seerr_upsert_server sonarr "Sonarr-Anime" "172.20.0.11" "${SONARR_ANIME_API_KEY:-}" \
+    "$(servarr_profile_id "${SONARR_ANIME_API_KEY:-}" "$SONARR_ANIME_URL" "[Anime] Remux-1080p")" \
+    "[Anime] Remux-1080p" "/data/media/anime" false
+  seerr_upsert_server radarr "Radarr" "172.20.0.12" "${RADARR_API_KEY:-}" \
+    "$(servarr_profile_id "${RADARR_API_KEY:-}" "$RADARR_URL" "[SQP] SQP-1 (2160p)")" \
+    "[SQP] SQP-1 (2160p)" "/data/media/movies" true
 }
 
 if curl -fsS "${SEERR_URL}/api/v1/status" >/dev/null 2>&1; then
