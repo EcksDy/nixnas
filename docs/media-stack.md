@@ -138,6 +138,8 @@ Already automated:
 - TRaSH/Recyclarr quality profiles and custom-format scoring via Recyclarr, including
   Season Pack preference for both main Sonarr and Sonarr-Anime.
 - Daily drift snapshots for review.
+- qBittorrent metadata-stuck cleanup: torrents in metadata download for over 30 minutes
+  are checked/deleted every 30 minutes; Sonarr/Radarr remain monitored and can grab another release.
 
 Could be automated next:
 

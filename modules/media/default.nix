@@ -29,6 +29,7 @@ in
     ./apikeys.nix
     ./bazarr.nix
     ./bootstrap.nix
+    ./qbit-cleanup.nix
     ./drift.nix
   ];
 
