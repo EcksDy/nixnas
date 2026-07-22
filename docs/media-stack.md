@@ -135,7 +135,8 @@ Already automated:
 - Sonarr/Sonarr-Anime/Radarr download clients, root folders, and Prowlarr app links via
   `arr-reconcile.service`.
 - Seerr server registration after `SEERR_API_KEY` exists.
-- TRaSH/Recyclarr quality profiles and custom-format scoring via Recyclarr.
+- TRaSH/Recyclarr quality profiles and custom-format scoring via Recyclarr, including
+  Season Pack preference for both main Sonarr and Sonarr-Anime.
 - Daily drift snapshots for review.
 
 Could be automated next:

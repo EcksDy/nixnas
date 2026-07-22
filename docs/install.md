@@ -214,6 +214,7 @@ In Seerr, verify server/profile selections:
 
 The `WEB-2160p`/SQP profiles are “best available” profiles: Sonarr/Radarr can grab 2160p
 first, fall back to 1080p/720p when needed, and upgrade later when better releases appear.
+Main Sonarr and Sonarr-Anime also prefer Season Pack releases with a moderate TRaSH score.
 
 ### 2.7 Verify
 

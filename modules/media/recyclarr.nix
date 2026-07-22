@@ -61,6 +61,12 @@ let
                   - WEBDL-720p
                   - WEBRip-720p
               - name: Bluray-720p
+        custom_formats:
+          - trash_ids:
+              - 3bc5f395426614e155e585a2f056cdf1 # Season Pack
+            assign_scores_to:
+              - name: WEB-2160p
+                score: 100
 
       sonarr-anime:
         base_url: http://172.20.0.11:8989
@@ -70,6 +76,12 @@ let
         quality_profiles:
           - trash_id: 20e0fc959f1f1704bed501f23bdae76f # [Anime] Remux-1080p
             name: "[Anime] Remux-1080p"
+        custom_formats:
+          - trash_ids:
+              - 3bc5f395426614e155e585a2f056cdf1 # Season Pack
+            assign_scores_to:
+              - name: "[Anime] Remux-1080p"
+                score: 100
 
     radarr:
       radarr-main:
