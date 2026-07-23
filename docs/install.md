@@ -213,6 +213,8 @@ The reconcile also sets qBittorrent default/category paths:
   - normal download limit: 5 MiB/s
   - alternative mode from 01:00 to 09:00 every day: unlimited download
   - upload remains unlimited in both modes
+- qBit excluded file names enabled for unsafe/unwanted sidecar files, archives,
+  installers/scripts, samples, checksums, and other non-media extensions.
 
 In Seerr, verify server/profile selections:
 

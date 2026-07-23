@@ -102,8 +102,9 @@ qbit_wait_up() {
 }
 
 qbit_set_prefs() {
-  local prefs
-  prefs="$(jq -nc '{
+  local excluded prefs
+  excluded='*.lnk *.pif *.scr *.jpeg *.bat *.com *.txt *.nfo *.doc *.docx *.pdf *.rtf *.js *.py *.html *.css *.php *.sh *.zip *.rar *.7z *.tar *.gz *.iso *.img *.exe *.msi *.apk *.dmg *.dll *.sys *.ini *.dat *.tmp *.sub *.sfv *.zipx *.jpg *.idx *.png *.sup *.cmd *.vbs *.reg *.xml *.sqlite *.website *.ps1 *.cpl *.hta *.jar *.vb *.vbe *.jse *.wsf *.msc *.gadget *.ocx *.drv *.bin *.c *.cpp *.h *.vbproj *.csproj *.cab *.bz2 *.xz *.tgz *.txz *.apkx *.ipa *.wim *.xpi *.ear *.war *.m4b *.m4p *.m4r *.aac *.cue *.m3u *.pls *.asx *.thm *.md5 *.sha1 *.sha256 *.par *.par2 *.torrent *.log *.bak *.old *.temp *.chm *.hlp *.xps *.ics *.arj *.contact *sample.mkv *sample.avi *sample.mp4'
+  prefs="$(jq -nc --arg excluded "$excluded" '{
     save_path:"/data/torrents/",
     temp_path:"/data/torrents/incomplete/",
     temp_path_enabled:true,
@@ -125,10 +126,12 @@ qbit_set_prefs() {
     schedule_from_min:0,
     schedule_to_hour:9,
     schedule_to_min:0,
-    scheduler_days:0
+    scheduler_days:0,
+    excluded_file_names_enabled:true,
+    excluded_file_names:$excluded
   }')"
   qbit_api POST app/setPreferences --data-urlencode "json=${prefs}" >/dev/null
-  log "qbit: default save path /data/torrents; category paths/manual mode, queueing, slow-torrent limits, and speed schedule configured"
+  log "qbit: default save path /data/torrents; category paths/manual mode, queueing, slow-torrent limits, speed schedule, and excluded file names configured"
 }
 
 qbit_ensure_category() {
