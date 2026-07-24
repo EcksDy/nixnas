@@ -13,7 +13,7 @@ in
 {
   systemd.services.arr-backup = {
     description = "Back up /apps/config to Cloudflare R2";
-    path = [ pkgs.rclone pkgs.sqlite pkgs.coreutils pkgs.findutils pkgs.gnutar pkgs.zstd ];
+    path = [ pkgs.rclone pkgs.rsync pkgs.sqlite pkgs.coreutils pkgs.findutils pkgs.gnutar pkgs.zstd ];
     serviceConfig = {
       Type = "oneshot";
       EnvironmentFile = lib.optional hasSecret "/run/secrets/r2_env";
@@ -24,15 +24,37 @@ in
       STAGE="$(mktemp -d)"
       trap 'rm -rf "$STAGE"' EXIT
 
-      # SQLite-safe snapshot: for every *.db use online .backup, copy rest.
-      cp -a "$SRC/." "$STAGE/"
-      find "$STAGE" -type f -name '*.db' | while read -r db; do
+      # SQLite-safe snapshot. Copy runtime state, but skip reproducible/bulky
+      # caches, metadata artwork, media covers, logs, Recyclarr guide clones, and
+      # qBit GeoDB. Keep SQLite WAL/SHM during staging so .backup can checkpoint
+      # live DBs safely, then remove WAL/SHM before archiving.
+      rsync -a \
+        --exclude='*/cache/***' \
+        --exclude='*/Cache/***' \
+        --exclude='jellyfin/data/metadata/***' \
+        --exclude='*/MediaCover/***' \
+        --exclude='*/logs/***' \
+        --exclude='*/log/***' \
+        --exclude='recyclarr/resources/***' \
+        --exclude='qbittorrent/qBittorrent/GeoDB/***' \
+        --exclude='*.log' \
+        --exclude='*.log.*' \
+        --exclude='logs.db' \
+        --exclude='logs.db-*' \
+        --exclude='*.bak' \
+        "$SRC/" "$STAGE/"
+
+      find "$STAGE" -type f \( -name '*.db' -o -name '*.sqlite' -o -name '*.sqlite3' \) | while read -r db; do
         sqlite3 "$db" ".backup '$db.bak'" && mv -f "$db.bak" "$db" || true
       done
+      find "$STAGE" -type f \( -name '*-wal' -o -name '*-shm' \) -delete
+
+      echo "Staged backup size: $(du -sh "$STAGE" | cut -f1)"
 
       TS="$(date +%Y%m%d-%H%M%S)"
       ARCHIVE="$STAGE/../apps-config-$TS.tar.zst"
       tar -C "$STAGE" -cf - . | zstd -q -o "$ARCHIVE"
+      echo "Compressed archive size: $(du -h "$ARCHIVE" | cut -f1)"
 
       # RCLONE_CONFIG_R2_* + R2_BUCKET come from the env file.
       rclone copy "$ARCHIVE" "r2:''${R2_BUCKET}/apps-config/" --s3-no-check-bucket
