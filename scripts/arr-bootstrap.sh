@@ -103,11 +103,118 @@ qbit_wait_up() {
 
 qbit_set_prefs() {
   local excluded prefs
-  excluded='*.lnk *.pif *.scr *.jpeg *.bat *.com *.txt *.nfo *.doc *.docx *.pdf *.rtf *.js *.py *.html *.css *.php *.sh *.zip *.rar *.7z *.tar *.gz *.iso *.img *.exe *.msi *.apk *.dmg *.dll *.sys *.ini *.dat *.tmp *.sub *.sfv *.zipx *.jpg *.idx *.png *.sup *.cmd *.vbs *.reg *.xml *.sqlite *.website *.ps1 *.cpl *.hta *.jar *.vb *.vbe *.jse *.wsf *.msc *.gadget *.ocx *.drv *.bin *.c *.cpp *.h *.vbproj *.csproj *.cab *.bz2 *.xz *.tgz *.txz *.apkx *.ipa *.wim *.xpi *.ear *.war *.m4b *.m4p *.m4r *.aac *.cue *.m3u *.pls *.asx *.thm *.md5 *.sha1 *.sha256 *.par *.par2 *.torrent *.log *.bak *.old *.temp *.chm *.hlp *.xps *.ics *.arj *.contact *sample.mkv *sample.avi *sample.mp4'
+  excluded="$(cat <<'EOF'
+*.lnk
+*.pif
+*.scr
+*.jpeg
+*.bat
+*.com
+*.txt
+*.nfo
+*.doc
+*.docx
+*.pdf
+*.rtf
+*.js
+*.py
+*.html
+*.css
+*.php
+*.sh
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.iso
+*.img
+*.exe
+*.msi
+*.apk
+*.dmg
+*.dll
+*.sys
+*.ini
+*.dat
+*.tmp
+*.sub
+*.sfv
+*.zipx
+*.jpg
+*.idx
+*.png
+*.sup
+*.cmd
+*.vbs
+*.reg
+*.xml
+*.sqlite
+*.website
+*.ps1
+*.cpl
+*.hta
+*.jar
+*.vb
+*.vbe
+*.jse
+*.wsf
+*.msc
+*.gadget
+*.ocx
+*.drv
+*.bin
+*.c
+*.cpp
+*.h
+*.vbproj
+*.csproj
+*.cab
+*.bz2
+*.xz
+*.tgz
+*.txz
+*.apkx
+*.ipa
+*.wim
+*.xpi
+*.ear
+*.war
+*.m4b
+*.m4p
+*.m4r
+*.aac
+*.cue
+*.m3u
+*.pls
+*.asx
+*.thm
+*.md5
+*.sha1
+*.sha256
+*.par
+*.par2
+*.torrent
+*.log
+*.bak
+*.old
+*.temp
+*.chm
+*.hlp
+*.xps
+*.ics
+*.arj
+*.contact
+*sample.mkv
+*sample.avi
+*sample.mp4
+EOF
+)"
   prefs="$(jq -nc --arg excluded "$excluded" '{
     save_path:"/data/torrents/",
     temp_path:"/data/torrents/incomplete/",
     temp_path_enabled:true,
+    torrent_content_layout:"Subfolder",
     use_category_paths_in_manual_mode:true,
     dont_count_slow_torrents:true,
     slow_torrent_dl_rate_threshold:300,
@@ -131,7 +238,7 @@ qbit_set_prefs() {
     excluded_file_names:$excluded
   }')"
   qbit_api POST app/setPreferences --data-urlencode "json=${prefs}" >/dev/null
-  log "qbit: default save path /data/torrents; category paths/manual mode, queueing, slow-torrent limits, speed schedule, and excluded file names configured"
+  log "qbit: default save path /data/torrents; subfolder layout, category paths/manual mode, queueing, slow-torrent limits, speed schedule, and excluded file names configured"
 }
 
 qbit_ensure_category() {
@@ -270,26 +377,58 @@ do_arr "sonarr-anime" "$SONARR_ANIME_URL" "${SONARR_ANIME_API_KEY:-}" "anime"  "
 do_arr "radarr"       "$RADARR_URL"       "${RADARR_API_KEY:-}"       "movies" "/data/media/movies"
 
 # ---- Prowlarr -> applications (reconcile, v1) ------------------
+prowlarr_tag_id() {
+  local label="$1"
+  api "${PROWLARR_API_KEY:-}" GET "${PROWLARR_URL}/api/v1/tag" 2>/dev/null |
+    jq -r --arg label "$label" '.[] | select(.label==$label) | .id' | head -n1
+}
+
 prowlarr_apps_desired() {
+  local tv_tag anime_tag movies_tag
+  tv_tag="$(prowlarr_tag_id tv || true)"
+  anime_tag="$(prowlarr_tag_id anime || true)"
+  movies_tag="$(prowlarr_tag_id movies || true)"
+
   jq -n \
     --arg purl "$PROWLARR_URL" \
     --arg surl "$SONARR_URL"       --arg skey "${SONARR_API_KEY:-}" \
     --arg aurl "$SONARR_ANIME_URL" --arg akey "${SONARR_ANIME_API_KEY:-}" \
-    --arg rurl "$RADARR_URL"       --arg rkey "${RADARR_API_KEY:-}" '
+    --arg rurl "$RADARR_URL"       --arg rkey "${RADARR_API_KEY:-}" \
+    --arg tv_tag "$tv_tag" --arg anime_tag "$anime_tag" --arg movies_tag "$movies_tag" '
+    def tag_array($id): if $id == "" then [] else [($id|tonumber)] end;
+    def tags_array($ids): [$ids[] | select(. != "") | tonumber];
+    # Prowlarr category isolation. Standard categories include matching custom
+    # categories, but anime-tagged indexers often publish anime-specific custom
+    # category IDs, so keep those explicit on Sonarr-Anime too.
+    def tv_categories: [5000,5010,5020,5030,5040,5045,5050,5060,5080,5090];
+    def anime_categories: [5070,143862,143504,153635,107494,127941,127438,140679,125996,127720,131088,134634];
+    def movie_categories: [2000,2010,2020,2030,2040,2045,2050,2060,2070,2080,2090,153635,107494,127941,127438,140679,127720,131088,134634];
     [
-      {name:"Sonarr",       implementation:"Sonarr", configContract:"SonarrSettings", syncLevel:"fullSync",
-       fields:[{name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$surl},{name:"apiKey",value:$skey}]},
+      {name:"Sonarr", implementation:"Sonarr", configContract:"SonarrSettings", syncLevel:"fullSync",
+       tags:tag_array($tv_tag),
+       fields:[
+         {name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$surl},{name:"apiKey",value:$skey},
+         {name:"syncCategories",value:tv_categories},{name:"animeSyncCategories",value:[]}
+       ]},
       {name:"Sonarr-Anime", implementation:"Sonarr", configContract:"SonarrSettings", syncLevel:"fullSync",
-       fields:[{name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$aurl},{name:"apiKey",value:$akey}]},
-      {name:"Radarr",       implementation:"Radarr", configContract:"RadarrSettings", syncLevel:"fullSync",
-       fields:[{name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$rurl},{name:"apiKey",value:$rkey}]}
+       tags:tag_array($anime_tag),
+       fields:[
+         {name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$aurl},{name:"apiKey",value:$akey},
+         {name:"syncCategories",value:[]},{name:"animeSyncCategories",value:anime_categories}
+       ]},
+      {name:"Radarr", implementation:"Radarr", configContract:"RadarrSettings", syncLevel:"fullSync",
+       tags:tags_array([$movies_tag,$anime_tag]),
+       fields:[
+         {name:"prowlarrUrl",value:$purl},{name:"baseUrl",value:$rurl},{name:"apiKey",value:$rkey},
+         {name:"syncCategories",value:movie_categories}
+       ]}
     ]'
 }
 
 if wait_up "prowlarr" "$PROWLARR_URL" "${PROWLARR_API_KEY:-}" "v1"; then
   reconcile "${PROWLARR_API_KEY:-}" "$PROWLARR_URL" "applications" "name" \
     "$(prowlarr_apps_desired)" "v1"
-  log "note: indexers are NOT managed here — add them in the Prowlarr UI (with creds)."
+  log "note: indexers are NOT managed here — add them in the Prowlarr UI (with matching tv/anime/movies tags)."
 fi
 
 # ---- Seerr (best-effort service wiring) -----------------------

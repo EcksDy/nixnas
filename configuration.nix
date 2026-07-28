@@ -255,6 +255,11 @@
     ++ [
       # --- /data (HDD) TRaSH tree ---
       (mediaDir "${dataDir}/torrents")
+      (mediaDir "${dataDir}/torrents/incomplete")
+      (mediaDir "${dataDir}/torrents/incomplete/tv")
+      (mediaDir "${dataDir}/torrents/incomplete/movies")
+      (mediaDir "${dataDir}/torrents/incomplete/music")
+      (mediaDir "${dataDir}/torrents/incomplete/anime")
       (mediaDir "${dataDir}/torrents/tv")
       (mediaDir "${dataDir}/torrents/movies")
       (mediaDir "${dataDir}/torrents/music")
