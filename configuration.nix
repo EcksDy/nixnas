@@ -185,6 +185,7 @@
     file
     unzip
     jq
+    ffmpeg         # ffprobe/ffmpeg media inspection tools
     bc
     efibootmgr
 
