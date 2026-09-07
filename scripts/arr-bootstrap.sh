@@ -338,7 +338,7 @@ qbit_json() {
       implementation:"QBittorrent", configContract:"QBittorrentSettings",
       fields:[ {name:"host",value:$host},{name:"port",value:8081},
                {name:"useSsl",value:false},{name:"urlBase",value:""},
-               {name:"apiKey",value:$apikey},
+               {name:"apiKey",value:$apikey},{name:"removeCompletedDownloads",value:true},
                {name:$cat_field,value:$cat} ] }'
 }
 sab_json() {
@@ -347,7 +347,8 @@ sab_json() {
     { enable:true, protocol:"usenet", priority:1, name:"SABnzbd",
       implementation:"Sabnzbd", configContract:"SabnzbdSettings",
       fields:[ {name:"host",value:$host},{name:"port",value:8080},
-               {name:"apiKey",value:$apikey},{name:"category",value:$cat} ] }'
+               {name:"apiKey",value:$apikey},{name:"category",value:$cat},
+               {name:"removeCompletedDownloads",value:true} ] }'
 }
 
 # download clients desired-array for an arr (qbit always; sab only if key set)

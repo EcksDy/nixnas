@@ -99,6 +99,7 @@ journalctl -u arr-reconcile.service -f
 > Because reconcile is manual (after first boot), your UI changes are never clobbered
 > unexpectedly.
 
+> **Torrent seeding:** Set **Seed Ratio** to `2.0` on each Prowlarr indexer, then sync it to Sonarr/Sonarr-Anime/Radarr. The bootstrap sets **Remove Completed Downloads** on their qBittorrent and SABnzbd clients; it removes the download only after the client marks it complete (for torrents, after that ratio/seeding policy).
 - **Recyclarr** (`modules/media/recyclarr.nix`) — TRaSH quality profiles / custom formats,
   rendered declaratively from Nix and mounted as `/config/recyclarr.yml`; keys via
   `!env_var`. Uses Recyclarr v8 guide-backed quality profiles by TRaSH ID and syncs daily.
