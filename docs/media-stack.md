@@ -99,7 +99,7 @@ journalctl -u arr-reconcile.service -f
 > Because reconcile is manual (after first boot), your UI changes are never clobbered
 > unexpectedly.
 
-> **Torrent seeding:** Set **Seed Ratio** to `2.0` on each Prowlarr indexer, then sync it to Sonarr/Sonarr-Anime/Radarr. The bootstrap sets **Remove Completed Downloads** on their qBittorrent and SABnzbd clients; it removes the download only after the client marks it complete (for torrents, after that ratio/seeding policy).
+> **Torrent seeding:** qBittorrent stops torrents at ratio `2.0`; all Sonarr/Sonarr-Anime/Radarr clients then remove completed downloads from qBittorrent. SABnzbd completed-download cleanup is also enabled when SABnzbd is configured.
 - **Recyclarr** (`modules/media/recyclarr.nix`) — TRaSH quality profiles / custom formats,
   rendered declaratively from Nix and mounted as `/config/recyclarr.yml`; keys via
   `!env_var`. Uses Recyclarr v8 guide-backed quality profiles by TRaSH ID and syncs daily.
@@ -132,7 +132,7 @@ Already automated:
 - Stable API keys for Sonarr, Sonarr-Anime, Radarr, Prowlarr, and Bazarr.
 - qBittorrent/SAB host binding and reverse-proxy safety settings via LSIO
   `/custom-cont-init.d` scripts.
-- qBittorrent default save/temp paths and `tv`/`anime`/`movies` category save paths.
+- qBittorrent default save/temp paths and `tv`/`anime`/`movies` category paths under `/data/torrents`.
 - Sonarr/Sonarr-Anime/Radarr download clients, root folders, and Prowlarr app links via
   `arr-reconcile.service`.
 - Seerr server registration after `SEERR_API_KEY` exists.

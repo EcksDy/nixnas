@@ -220,25 +220,30 @@ EOF
     slow_torrent_dl_rate_threshold:300,
     slow_torrent_ul_rate_threshold:30,
     slow_torrent_inactive_timer:60,
-    queueing_enabled:true,
+    queueing_enabled:false,
     max_active_downloads:10,
-    max_active_uploads:5,
-    max_active_torrents:25,
-    dl_limit:5240,
-    up_limit:1000,
+    max_active_uploads:10,
+    max_active_torrents:30,
+    max_ratio:2,
+    max_ratio_enabled:true,
+    max_ratio_act:0, # stop torrents; Servarr removes them afterward
+    max_seeding_time_enabled:false,
+    max_inactive_seeding_time_enabled:false,
+    dl_limit:5365760, # 5240 KiB/s; API values are bytes/s
+    up_limit:1024000, # 1000 KiB/s
     alt_dl_limit:0,
     alt_up_limit:0,
     scheduler_enabled:true,
     schedule_from_hour:1,
     schedule_from_min:0,
-    schedule_to_hour:9,
+    schedule_to_hour:8,
     schedule_to_min:0,
     scheduler_days:0,
     excluded_file_names_enabled:true,
     excluded_file_names:$excluded
   }')"
   qbit_api POST app/setPreferences --data-urlencode "json=${prefs}" >/dev/null
-  log "qbit: default save path /data/torrents; subfolder layout, category paths/manual mode, queueing, slow-torrent limits, speed schedule, and excluded file names configured"
+  log "qbit: paths, layout, categories, limits, ratio-2 stop policy, speed schedule, and excluded file names configured"
 }
 
 qbit_ensure_category() {
@@ -260,9 +265,10 @@ qbit_ensure_category() {
 qbit_configure() {
   qbit_wait_up || return 0
   qbit_set_prefs || { log "WARN qbit: failed to set default paths"; return 0; }
-  qbit_ensure_category tv     /data/torrents/tv     || log "WARN qbit: failed to reconcile tv category"
-  qbit_ensure_category anime  /data/torrents/anime  || log "WARN qbit: failed to reconcile anime category"
-  qbit_ensure_category movies /data/torrents/movies || log "WARN qbit: failed to reconcile movies category"
+  # Empty category savePath lets qBit resolve /data/torrents/<category> in manual mode.
+  qbit_ensure_category tv     "" || log "WARN qbit: failed to reconcile tv category"
+  qbit_ensure_category anime  "" || log "WARN qbit: failed to reconcile anime category"
+  qbit_ensure_category movies "" || log "WARN qbit: failed to reconcile movies category"
 }
 
 # ---------------------------------------------------------------
@@ -335,20 +341,20 @@ qbit_json() {
   jq -n --arg host "$NET_GW" --arg cat "$cat" --arg cat_field "$cat_field" \
         --arg apikey "${QBIT_API_KEY:-}" '
     { enable:true, protocol:"torrent", priority:1, name:"qBittorrent",
+      removeCompletedDownloads:true, removeFailedDownloads:false,
       implementation:"QBittorrent", configContract:"QBittorrentSettings",
       fields:[ {name:"host",value:$host},{name:"port",value:8081},
                {name:"useSsl",value:false},{name:"urlBase",value:""},
-               {name:"apiKey",value:$apikey},{name:"removeCompletedDownloads",value:true},
-               {name:$cat_field,value:$cat} ] }'
+               {name:"apiKey",value:$apikey},{name:$cat_field,value:$cat} ] }'
 }
 sab_json() {
   local cat="$1"
   jq -n --arg host "$NET_GW" --arg cat "$cat" --arg apikey "${SAB_API_KEY:-}" '
     { enable:true, protocol:"usenet", priority:1, name:"SABnzbd",
+      removeCompletedDownloads:true, removeFailedDownloads:false,
       implementation:"Sabnzbd", configContract:"SabnzbdSettings",
       fields:[ {name:"host",value:$host},{name:"port",value:8080},
-               {name:"apiKey",value:$apikey},{name:"category",value:$cat},
-               {name:"removeCompletedDownloads",value:true} ] }'
+               {name:"apiKey",value:$apikey},{name:"category",value:$cat} ] }'
 }
 
 # download clients desired-array for an arr (qbit always; sab only if key set)
