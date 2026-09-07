@@ -221,22 +221,31 @@ in
     (writeShellScriptBin "nixnas-status" (builtins.readFile ./scripts/nixnas-status))
   ];
 
-  # Keep the firmware policy declaratively set to boot whenever AC returns.
+  # Reconcile before it87 claims the controller; during a live switch defer
+  # cleanly until reboot rather than unloading the active fan driver.
   systemd.services.ugreen-ac-recovery = {
     description = "Set UGREEN AC power recovery to always on";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "fan-control.service" ];
+    wantedBy = [ "systemd-modules-load.service" ];
+    before = [ "systemd-modules-load.service" ];
+    unitConfig.DefaultDependencies = false;
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
     };
     path = [ ugreenctl ];
     script = ''
+      if [ -d /sys/module/it87 ]; then
+        echo "it87 already active; deferring AC recovery reconciliation until reboot"
+        exit 0
+      fi
+
       current=$(ugreenctl power startup get)
       if [ "$current" != "on" ]; then
         ugreenctl --apply power startup set on
       fi
-      test "$(ugreenctl power startup get)" = "on"
+      current=$(ugreenctl power startup get)
+      test "$current" = "on"
+      echo "AC recovery policy: $current"
     '';
   };
 

@@ -25,6 +25,7 @@
         ./modules/settings.nix
         ./modules/ugos-protection.nix
         ./modules/fan-control.nix
+        ./modules/ugreen-leds.nix
         ./modules/secrets.nix
         ./modules/tinker.nix
         ./modules/tailscale.nix
