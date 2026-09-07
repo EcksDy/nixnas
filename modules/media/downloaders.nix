@@ -95,7 +95,7 @@ let
     if [ -n "''${SAB_API_KEY:-}" ]; then
       set_ini misc api_key "$SAB_API_KEY"
     fi
-    set_ini misc host_whitelist "usenet.${cfg.domain},192.168.100.9"
+    set_ini misc host_whitelist "usenet.${cfg.domain},192.168.88.9"
     chown abc:abc "$ini"
   '';
 in

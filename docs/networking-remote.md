@@ -8,14 +8,14 @@ Tailscale is the only remote path.
 ## Model
 
 ```
-On LAN:   device ──DNS──> 192.168.100.9 ──> Traefik ──> service
-Remote:   device ──Tailscale──> 192.168.100.0/24 (subnet route) ──> Traefik ──> service
+On LAN:   device ──DNS──> 192.168.88.9 ──> Traefik ──> service
+Remote:   device ──Tailscale──> 192.168.88.0/24 (subnet route) ──> Traefik ──> service
 ```
 
-- Public DNS `*.yourdomain.com → 192.168.100.9` (your LAN IP). Advertising a private IP
+- Public DNS `*.yourdomain.com → 192.168.88.9` (your LAN IP). Advertising a private IP
   publicly is harmless — it's not routable from the internet.
 - On the LAN, clients hit the NAS directly. No Tailscale needed at home.
-- From outside, only devices on your tailnet reach `192.168.100.0/24` via the Tailscale
+- From outside, only devices on your tailnet reach `192.168.88.0/24` via the Tailscale
   subnet router. Nothing is publicly reachable.
 
 ## TLS — Cloudflare DNS-01 wildcard
@@ -37,7 +37,7 @@ Remote:   device ──Tailscale──> 192.168.100.0/24 (subnet route) ──> 
 ## Tailscale subnet router
 
 - `services.tailscale`, `useRoutingFeatures = "server"` (enables IP forwarding),
-  `--advertise-routes=192.168.100.0/24`, `authKeyFile` from sops.
+  `--advertise-routes=192.168.88.0/24`, `authKeyFile` from sops.
 - Approve the advertised route in the Tailscale admin console (or ACL autoApprovers).
 - Firewall: trust `tailscale0`, allow UDP 41641.
 - Remote clients need `tailscale set --accept-routes`.

@@ -127,7 +127,7 @@ Values you need:
 - **Cloudflare**: DNS-edit API token (Zone:DNS:Edit + Zone:Zone:Read) for `8004228.xyz`.
 - **Tailscale**: a **reusable, non-ephemeral** auth key from
   login.tailscale.com/admin/settings/keys (Reusable ON, Ephemeral OFF). The NAS auto-joins
-  on first boot and advertises `192.168.100.0/24`; approve that route in the admin console
+  on first boot and advertises `192.168.88.0/24`; approve that route in the admin console
   afterwards (Machines → nixnas → Edit route settings).
 - **R2**: access key id / secret / account id / bucket for backups.
 - **arr API keys**: Sonarr, Sonarr-Anime, Radarr, Prowlarr, and Bazarr — generate each with `openssl rand -hex 16`.
@@ -154,7 +154,7 @@ start, `arr-apikeys` seeds keys, and `arr-bootstrap` runs its ONE automatic reco
 
 ### 2.5 DNS + certs
 
-- Point `*.8004228.xyz` → `192.168.100.9` in Cloudflare DNS (A record, proxy OFF/grey).
+- Point `*.8004228.xyz` → `192.168.88.9` in Cloudflare DNS (A record, proxy OFF/grey).
 - Traefik issues the wildcard cert via DNS-01 automatically (needs the CF token).
 - On LAN you reach `https://sonarr.8004228.xyz` directly; remotely via Tailscale.
 

@@ -33,10 +33,10 @@
     # Tailscale subnet route. If the active NIC changes, update enp3s0 below.
     useDHCP = false;
     interfaces.enp3s0.ipv4.addresses = [{
-      address = "192.168.100.9";
+      address = "192.168.88.9";
       prefixLength = 24;
     }];
-    defaultGateway = "192.168.100.1";
+    defaultGateway = "192.168.88.1";
     nameservers = [ "1.1.1.1" "9.9.9.9" ];
     firewall = {
       enable = true;
@@ -122,7 +122,7 @@
     enable = true;
     ignoreIP = [
       "127.0.0.1/8"
-      "192.168.100.0/24"
+      "192.168.88.0/24"
     ];
     maxretry = 10;
     bantime = "10m";
