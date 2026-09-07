@@ -1,4 +1,28 @@
 { config, pkgs, lib, ... }:
+
+let
+  ugreenctl = pkgs.stdenvNoCC.mkDerivation {
+    pname = "ugreenctl";
+    version = "0.2.0";
+
+    src = pkgs.fetchurl {
+      url = "https://github.com/BearHero520/UGREEN-NAS-Hardware/releases/download/v0.2.0/ugreenctl-v0.2.0-linux-x86_64.tar.gz";
+      hash = "sha256-or1VKDCKuwlvd6A+PiLfK0wJvTnQsY3d6ms4jPFDzXM=";
+    };
+
+    sourceRoot = ".";
+    nativeBuildInputs = [ pkgs.autoPatchelfHook pkgs.makeWrapper ];
+    buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+
+    installPhase = ''
+      install -Dm755 bin/ugreenctl $out/libexec/ugreenctl
+      mkdir -p $out/lib/ugreenctl
+      cp -r lib/ugreenctl/models $out/lib/ugreenctl/
+      makeWrapper $out/libexec/ugreenctl $out/bin/ugreenctl \
+        --add-flags "--plugin-dir $out/lib/ugreenctl/models"
+    '';
+  };
+in
 {
   # ============================================================
   # Boot
@@ -160,6 +184,7 @@
     usbutils       # lsusb
     dmidecode      # hardware info
     lm_sensors
+    ugreenctl      # UGREEN AC power-recovery controller
 
     # Disk tools
     smartmontools  # smartctl
@@ -195,6 +220,25 @@
     # Dashboard tool
     (writeShellScriptBin "nixnas-status" (builtins.readFile ./scripts/nixnas-status))
   ];
+
+  # Keep the firmware policy declaratively set to boot whenever AC returns.
+  systemd.services.ugreen-ac-recovery = {
+    description = "Set UGREEN AC power recovery to always on";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "fan-control.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ ugreenctl ];
+    script = ''
+      current=$(ugreenctl power startup get)
+      if [ "$current" != "on" ]; then
+        ugreenctl --apply power startup set on
+      fi
+      test "$(ugreenctl power startup get)" = "on"
+    '';
+  };
 
   # ============================================================
   # Docker
