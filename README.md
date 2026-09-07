@@ -28,6 +28,7 @@ ProtonVPN-protected *arr stack · Tailscale-only remote access.
 | [Secrets](docs/secrets.md) | sops-nix + age, Proton Pass key, edit/rotate workflow |
 | [Media stack](docs/media-stack.md) | *arr services, Gluetun/ProtonVPN, Jellyfin QSV, declarative app config |
 | [Networking & remote](docs/networking-remote.md) | Traefik, Cloudflare DNS-01 certs, Tailscale subnet router |
+| [Network-move recovery](docs/network-move-recovery.md) | Recover SSH and migrate a static NixNAS address after changing routers |
 | [Backup](docs/backup.md) | App-state backup to Cloudflare R2 |
 | [Maintenance](docs/maintenance.md) | Everyday operations, updates, troubleshooting |
 
