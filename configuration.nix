@@ -10,7 +10,7 @@ let
       hash = "sha256-or1VKDCKuwlvd6A+PiLfK0wJvTnQsY3d6ms4jPFDzXM=";
     };
 
-    sourceRoot = ".";
+    sourceRoot = "ugreenctl-v0.2.0-linux-x86_64";
     nativeBuildInputs = [ pkgs.autoPatchelfHook pkgs.makeWrapper ];
     buildInputs = [ pkgs.stdenv.cc.cc.lib ];
 
