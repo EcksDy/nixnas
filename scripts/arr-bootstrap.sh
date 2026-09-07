@@ -30,6 +30,7 @@ SONARR_URL="http://172.20.0.10:8989"
 SONARR_ANIME_URL="http://172.20.0.11:8989"
 RADARR_URL="http://172.20.0.12:7878"
 SEERR_URL="http://172.20.0.5:5055"
+EXTERNAL_DOMAIN="${NIXNAS_DOMAIN:?NIXNAS_DOMAIN is not set}"
 
 # shellcheck disable=SC1091
 . /run/secrets/bootstrap_env
@@ -458,7 +459,7 @@ servarr_profile_id() {
 }
 
 seerr_upsert_server() {
-  local kind="$1" name="$2" host="$3" key="$4" profile_id="$5" profile_name="$6" dir="$7" is_default="$8"
+  local kind="$1" name="$2" host="$3" key="$4" profile_id="$5" profile_name="$6" dir="$7" is_default="$8" external_url="$9"
   local seerr_key="${SEERR_API_KEY:-}" base="${SEERR_URL}/api/v1" endpoint existing id payload out
   [ "$kind" = "sonarr" ] && endpoint="settings/sonarr" || endpoint="settings/radarr"
   existing="$(curl -fsS -H "X-Api-Key: $seerr_key" "${base}/${endpoint}" 2>/dev/null || echo '[]')"
@@ -466,21 +467,20 @@ seerr_upsert_server() {
 
   if [ "$kind" = "sonarr" ]; then
     payload="$(jq -nc --arg name "$name" --arg host "$host" --arg key "$key" \
-      --argjson pid "$profile_id" --arg pname "$profile_name" --arg dir "$dir" --argjson def "$is_default" \
+      --argjson pid "$profile_id" --arg pname "$profile_name" --arg dir "$dir" --argjson def "$is_default" --arg external "$external_url" \
       '{name:$name,hostname:$host,port:8989,apiKey:$key,useSsl:false,baseUrl:"",
-        activeProfileId:$pid,activeProfileName:$pname,activeDirectory:$dir,is4k:false,
+        activeProfileId:$pid,activeProfileName:$pname,activeDirectory:$dir,externalUrl:$external,is4k:false,
         isDefault:$def,enableSeasonFolders:true}')"
   else
     payload="$(jq -nc --arg name "$name" --arg host "$host" --arg key "$key" \
-      --argjson pid "$profile_id" --arg pname "$profile_name" --arg dir "$dir" --argjson def "$is_default" \
+      --argjson pid "$profile_id" --arg pname "$profile_name" --arg dir "$dir" --argjson def "$is_default" --arg external "$external_url" \
       '{name:$name,hostname:$host,port:7878,apiKey:$key,useSsl:false,baseUrl:"",
-        activeProfileId:$pid,activeProfileName:$pname,activeDirectory:$dir,
+        activeProfileId:$pid,activeProfileName:$pname,activeDirectory:$dir,externalUrl:$external,
         minimumAvailability:"released",is4k:false,isDefault:$def}')"
   fi
 
   if [ -n "$existing" ]; then
     id="$(echo "$existing" | jq -r '.id')"
-    payload="$(echo "$payload" | jq -c --argjson id "$id" '. + {id:$id}')"
     if out="$(curl -fsS --fail-with-body -X PUT -H "X-Api-Key: $seerr_key" -H 'Content-Type: application/json' \
       "${base}/${endpoint}/${id}" -d "$payload" 2>&1)"; then
       log "seerr: ${name} updated (${profile_name})"
@@ -506,13 +506,13 @@ seerr_wire() {
 
   seerr_upsert_server sonarr "Sonarr" "172.20.0.10" "${SONARR_API_KEY:-}" \
     "$(servarr_profile_id "${SONARR_API_KEY:-}" "$SONARR_URL" "WEB-2160p")" \
-    "WEB-2160p" "/data/media/tv" true
+    "WEB-2160p" "/data/media/tv" true "https://sonarr.${EXTERNAL_DOMAIN}"
   seerr_upsert_server sonarr "Sonarr-Anime" "172.20.0.11" "${SONARR_ANIME_API_KEY:-}" \
     "$(servarr_profile_id "${SONARR_ANIME_API_KEY:-}" "$SONARR_ANIME_URL" "[Anime] Remux-1080p")" \
-    "[Anime] Remux-1080p" "/data/media/anime" false
+    "[Anime] Remux-1080p" "/data/media/anime" false "https://sonarr-anime.${EXTERNAL_DOMAIN}"
   seerr_upsert_server radarr "Radarr" "172.20.0.12" "${RADARR_API_KEY:-}" \
     "$(servarr_profile_id "${RADARR_API_KEY:-}" "$RADARR_URL" "[SQP] SQP-1 (2160p)")" \
-    "[SQP] SQP-1 (2160p)" "/data/media/movies" true
+    "[SQP] SQP-1 (2160p)" "/data/media/movies" true "https://radarr.${EXTERNAL_DOMAIN}"
 }
 
 if curl -fsS "${SEERR_URL}/api/v1/status" >/dev/null 2>&1; then

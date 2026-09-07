@@ -51,6 +51,7 @@ lib.mkIf hasSecret {
       "docker-gluetun.service"
       "arr-apikeys.service"
     ];
+    environment.NIXNAS_DOMAIN = cfg.domain;
     serviceConfig = {
       Type = "oneshot";
       # Auto path is gated by the stamp; manual `systemctl start` uses the same
@@ -64,6 +65,7 @@ lib.mkIf hasSecret {
   systemd.services.arr-reconcile = {
     description = "Force a full arr reconcile now (manual)";
     after = [ "arr-apikeys.service" ];
+    environment.NIXNAS_DOMAIN = cfg.domain;
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${script}/bin/arr-bootstrap";
