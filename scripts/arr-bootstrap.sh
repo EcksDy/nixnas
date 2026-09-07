@@ -216,6 +216,12 @@ EOF
     temp_path_enabled:true,
     torrent_content_layout:"Subfolder",
     use_category_paths_in_manual_mode:true,
+    upnp:false,
+    bypass_local_auth:true,
+    bypass_auth_subnet_whitelist_enabled:true,
+    bypass_auth_subnet_whitelist:"172.20.0.0/24",
+    web_ui_csrf_protection_enabled:true,
+    web_ui_host_header_validation_enabled:true,
     dont_count_slow_torrents:true,
     slow_torrent_dl_rate_threshold:300,
     slow_torrent_ul_rate_threshold:30,
@@ -243,7 +249,7 @@ EOF
     excluded_file_names:$excluded
   }')"
   qbit_api POST app/setPreferences --data-urlencode "json=${prefs}" >/dev/null
-  log "qbit: paths, layout, categories, limits, ratio-2 stop policy, speed schedule, and excluded file names configured"
+  log "qbit: paths, categories, limits, ratio-2 stop policy, speed schedule, proxied auth bypass, WebUI validation, UPnP, and exclusions configured"
 }
 
 qbit_ensure_category() {
