@@ -55,7 +55,7 @@ in
   systemd.services."docker-gluetun".serviceConfig.ExecStartPost = lib.mkAfter [
     "${pkgs.writeShellScript "wait-for-gluetun-container" ''
       for _ in $(${pkgs.coreutils}/bin/seq 1 300); do
-        [ \"$(${pkgs.docker}/bin/docker inspect --format '{{.State.Running}}' gluetun 2>/dev/null)\" = true ] && exit 0
+        [ "$(${pkgs.docker}/bin/docker inspect --format '{{.State.Running}}' gluetun 2>/dev/null)" = true ] && exit 0
         ${pkgs.coreutils}/bin/sleep 0.1
       done
       echo 'gluetun container did not become ready within 30 seconds' >&2
