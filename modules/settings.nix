@@ -82,19 +82,19 @@
         reproducible rebuilds; bump deliberately. Update tags then rebuild.
       '';
       default = {
-        gluetun      = "qmcgaw/gluetun:v3.41.1";
-        socketProxy  = "lscr.io/linuxserver/socket-proxy:2.8.7";
+        gluetun      = "qmcgaw/gluetun:v3.41.3";
+        socketProxy  = "lscr.io/linuxserver/socket-proxy:3.4.4";
         qbittorrent  = "lscr.io/linuxserver/qbittorrent:5.2.3";
-        sabnzbd      = "lscr.io/linuxserver/sabnzbd:5.0.4";
+        sabnzbd      = "lscr.io/linuxserver/sabnzbd:5.1.2";
         sonarr       = "lscr.io/linuxserver/sonarr:4.0.19";
         radarr       = "lscr.io/linuxserver/radarr:6.3.0";
         lidarr       = "lscr.io/linuxserver/lidarr:3.1.0";
-        prowlarr     = "lscr.io/linuxserver/prowlarr:2.4.0";
+        prowlarr     = "lscr.io/linuxserver/prowlarr:2.5.2";
         bazarr       = "lscr.io/linuxserver/bazarr:1.6.0";
         flaresolverr = "ghcr.io/flaresolverr/flaresolverr:v3.5.0";
         jellyfin     = "lscr.io/linuxserver/jellyfin:10.11.11";
-        seerr        = "ghcr.io/seerr-team/seerr:v3.3.0";
-        recyclarr    = "ghcr.io/recyclarr/recyclarr:8.7.0";
+        seerr        = "ghcr.io/seerr-team/seerr:v3.4.1";
+        recyclarr    = "ghcr.io/recyclarr/recyclarr:8.7.2";
       };
     };
   };
