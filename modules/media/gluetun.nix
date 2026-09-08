@@ -50,6 +50,19 @@ in
     ];
   };
 
+  # `docker run` units become active before Docker has created the container.
+  # Finish gluetun startup only once its shared network namespace can be joined.
+  systemd.services."docker-gluetun".serviceConfig.ExecStartPost = lib.mkAfter [
+    "${pkgs.writeShellScript "wait-for-gluetun-container" ''
+      for _ in $(${pkgs.coreutils}/bin/seq 1 300); do
+        [ \"$(${pkgs.docker}/bin/docker inspect --format '{{.State.Running}}' gluetun 2>/dev/null)\" = true ] && exit 0
+        ${pkgs.coreutils}/bin/sleep 0.1
+      done
+      echo 'gluetun container did not become ready within 30 seconds' >&2
+      exit 1
+    ''}"
+  ];
+
   systemd.services.gluetun-qbit-env = lib.mkIf hasSecret {
     description = "Render qBittorrent API key env for Gluetun port-forward hook";
     before = [ "docker-gluetun.service" ];
