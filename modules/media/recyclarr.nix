@@ -66,7 +66,7 @@ let
               - 3bc5f395426614e155e585a2f056cdf1 # Season Pack
             assign_scores_to:
               - name: WEB-2160p
-                score: 100
+                score: 5000
 
       sonarr-anime:
         base_url: http://172.20.0.11:8989
@@ -81,7 +81,7 @@ let
               - 3bc5f395426614e155e585a2f056cdf1 # Season Pack
             assign_scores_to:
               - name: "[Anime] Remux-1080p"
-                score: 100
+                score: 5000
 
     radarr:
       radarr-main:
