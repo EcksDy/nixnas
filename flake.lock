@@ -40,7 +40,24 @@
       "inputs": {
         "disko": "disko",
         "nixpkgs": "nixpkgs",
+        "security-nixpkgs": "security-nixpkgs",
         "sops-nix": "sops-nix"
+      }
+    },
+    "security-nixpkgs": {
+      "locked": {
+        "lastModified": 1792315997,
+        "narHash": "sha256-EibZD30KHGHNO7FxYkoKuL+G80t7SgTf+YY5AhWfYd4=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "e5760179995aca4060ef511e5cb51084c8a316bd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "e5760179995aca4060ef511e5cb51084c8a316bd",
+        "type": "github"
       }
     },
     "sops-nix": {

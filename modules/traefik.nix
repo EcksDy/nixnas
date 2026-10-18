@@ -48,6 +48,22 @@ in
 {
   services.traefik = {
     enable = true;
+    # Use the official security release until Nixpkgs catches up.
+    package = pkgs.stdenvNoCC.mkDerivation {
+      pname = "traefik";
+      version = "3.7.15";
+      src = pkgs.fetchurl {
+        url = "https://github.com/traefik/traefik/releases/download/v3.7.15/traefik_v3.7.15_linux_amd64.tar.gz";
+        sha256 = "5b9f51199fcb7a3b5f7ae0f9dae8dcf01efadafd92c5fca96ea2822eca81f8e6";
+      };
+      sourceRoot = ".";
+      dontConfigure = true;
+      dontBuild = true;
+      installPhase = ''
+        install -Dm755 traefik $out/bin/traefik
+      '';
+      meta.mainProgram = "traefik";
+    };
 
     staticConfigOptions = {
       entryPoints = {

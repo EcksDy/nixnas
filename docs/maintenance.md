@@ -35,9 +35,9 @@ sudo systemctl restart docker-<svc>    # restart
 
 ## Update container images
 
-Images are pinned by tag in each module. To update:
+Images are pinned centrally in `modules/settings.nix`. To update:
 
-1. Bump the image tag/digest in the relevant `modules/media/*.nix`.
+1. Bump the image tag/digest in `modules/settings.nix`.
 2. `sudo nixos-rebuild switch --flake .#nixnas`.
 
 (Avoid `latest`; pin tags so updates are deliberate and roll-back-able.)
@@ -130,3 +130,8 @@ session.
 2. `nix flake update`.
 3. `sudo nixos-rebuild switch --flake .#nixnas`.
 4. Do **not** change `system.stateVersion`.
+
+Docker uses the separately pinned `security-nixpkgs` input and a targeted override in
+`configuration.nix`. Traefik uses a checksum-pinned official binary in
+`modules/traefik.nix`. These security updates leave the host Nixpkgs pin and kernel
+unchanged; remove the overrides once the selected stable channel includes the fixes.

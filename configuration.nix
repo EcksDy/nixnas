@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, securityPkgs, ... }:
 
 let
   ugreenctl = pkgs.stdenvNoCC.mkDerivation {
@@ -254,6 +254,16 @@ in
   # ============================================================
   virtualisation.docker = {
     enable = true;
+    # Backport https://github.com/NixOS/nixpkgs/pull/575483 without changing the host lock.
+    package = securityPkgs.docker.override {
+      version = "29.9.1";
+      cliRev = "v29.9.1";
+      cliHash = "sha256-VPFDP86mR2hvGVyVN2jfcG1yQK1B9Rzagjbjp/eSZn8=";
+      mobyRev = "docker-v29.9.1";
+      mobyHash = "sha256-HG4lS0ltOLQJJGbei2soA08sj+fG0zgZI8YBVocMb5s=";
+      containerdRev = "v2.4.2";
+      containerdHash = "sha256-RP1qn/dlfVCAwe3ZxASStzGZmuYwdUVwfPGG8XByNNk=";
+    };
     # Store Docker data on NVMe /apps partition
     daemon.settings = {
       data-root = "/apps/docker";

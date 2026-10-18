@@ -26,8 +26,8 @@ in
 
       # SQLite-safe snapshot. Copy runtime state, but skip reproducible/bulky
       # caches, metadata artwork, media covers, logs, Recyclarr guide clones, and
-      # qBit GeoDB. Keep SQLite WAL/SHM during staging so .backup can checkpoint
-      # live DBs safely, then remove WAL/SHM before archiving.
+      # qBit GeoDB. Replace staged SQLite files with backups from the live DBs
+      # before removing their copied WAL/SHM files.
       rsync -a \
         --exclude='*/cache/***' \
         --exclude='*/Cache/***' \
@@ -45,7 +45,12 @@ in
         "$SRC/" "$STAGE/"
 
       find "$STAGE" -type f \( -name '*.db' -o -name '*.sqlite' -o -name '*.sqlite3' \) | while read -r db; do
-        sqlite3 "$db" ".backup '$db.bak'" && mv -f "$db.bak" "$db" || true
+        source="$SRC/''${db#"$STAGE/"}"
+        sqlite3 -readonly "$source" ".backup '$db.bak'"
+        test "$(sqlite3 -readonly "$db.bak" 'PRAGMA quick_check;')" = ok
+        chown --reference="$db" "$db.bak"
+        chmod --reference="$db" "$db.bak"
+        mv -f "$db.bak" "$db"
       done
       find "$STAGE" -type f \( -name '*-wal' -o -name '*-shm' \) -delete
 
