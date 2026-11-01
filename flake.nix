@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-    # Only explicitly selected security-sensitive services use this package set.
+    # Only explicitly selected services and the kernel use this package set.
     security-nixpkgs.url = "github:NixOS/nixpkgs/e5760179995aca4060ef511e5cb51084c8a316bd";
     disko = {
       url = "github:nix-community/disko";

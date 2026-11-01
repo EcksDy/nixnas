@@ -133,5 +133,10 @@ session.
 
 Docker uses the separately pinned `security-nixpkgs` input and a targeted override in
 `configuration.nix`. Traefik uses a checksum-pinned official binary in
-`modules/traefik.nix`. These security updates leave the host Nixpkgs pin and kernel
-unchanged; remove the overrides once the selected stable channel includes the fixes.
+`modules/traefik.nix`. These service overrides leave the host Nixpkgs pin unchanged;
+remove them once the selected stable channel includes the fixes.
+
+The kernel is selected separately with `securityPkgs.linuxPackages_6_18` in
+`configuration.nix`. Build the custom fan/LED modules before staging with
+`nixos-rebuild boot`; the new kernel only runs after a reboot. Retain the previous
+boot generation for recovery.
